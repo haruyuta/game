@@ -2,542 +2,772 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>パグ太郎ゲーム 🐶</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>パグゲーム 〜むちむち進化合体〜</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
 <style>
   :root{
-    --bg:#F7E8D0; --panel:#FFF7EA; --ink:#4A3526; --accent:#C97B4A;
-    --fawn:#E8C28A; --line:#E05A4E;
+    --bg:#2a2320; --panel:#3b322c; --cream:#f3e7d3; --tan:#d8a657;
+    --accent:#c4564a; --line:#8a6f54;
   }
-  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   body{
-    background:var(--bg); color:var(--ink);
-    font-family:"Hiragino Maru Gothic ProN","BIZ UDGothic","Yu Gothic",sans-serif;
-    display:flex;flex-direction:column;align-items:center;
-    min-height:100vh;overflow:hidden;touch-action:none;user-select:none;
+    background:
+      radial-gradient(1200px 600px at 50% -10%, #4a3c32 0%, var(--bg) 60%);
+    font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;
+    color:var(--cream); min-height:100vh;
+    display:flex; flex-direction:column; align-items:center;
+    overflow:hidden; touch-action:none; user-select:none;
   }
-  header{display:flex;align-items:baseline;gap:14px;padding:10px 0 4px;}
-  h1{font-size:22px;letter-spacing:2px;}
-  #score{font-size:26px;font-weight:bold;color:var(--accent);min-width:90px;}
-  #best{font-size:13px;opacity:.7;}
-  #wrap{position:relative;}
-  canvas{display:block;border-radius:18px;background:var(--panel);
-    box-shadow:0 6px 24px rgba(74,53,38,.18);}
-  #next{
-    position:absolute;top:10px;right:10px;background:rgba(255,255,255,.75);
-    border-radius:12px;padding:6px 10px;font-size:12px;text-align:center;
+  header{
+    width:100%; max-width:480px; display:flex; align-items:flex-end;
+    justify-content:space-between; padding:10px 14px 6px;
   }
-  #next canvas{box-shadow:none;background:transparent;}
-  #evo{display:flex;gap:4px;align-items:flex-end;padding:8px 0;}
-  #evo canvas{background:transparent;box-shadow:none;}
-  #over{
-    position:absolute;inset:0;border-radius:18px;display:none;
-    flex-direction:column;align-items:center;justify-content:center;gap:14px;
-    background:rgba(74,53,38,.78);color:#FFF7EA;text-align:center;
+  h1{
+    font-size:17px; letter-spacing:.12em; font-weight:800; color:var(--tan);
+    text-shadow:0 2px 0 rgba(0,0,0,.35);
   }
-  #over h2{font-size:30px;}
-  #over button{
-    font-size:18px;padding:10px 28px;border:none;border-radius:24px;
-    background:var(--accent);color:#fff;cursor:pointer;font-family:inherit;
+  h1 small{display:block;font-size:10px;color:#bca98c;font-weight:600;letter-spacing:.25em;margin-top:2px}
+  .scorebox{text-align:right}
+  .scorebox .lbl{font-size:9px;letter-spacing:.3em;color:#bca98c}
+  .scorebox .val{font-size:24px;font-weight:800;color:var(--cream);font-variant-numeric:tabular-nums;line-height:1}
+  .scorebox .best{font-size:10px;color:#9b8a72;margin-top:2px}
+  #wrap{position:relative; touch-action:none;}
+  canvas{display:block; border-radius:14px;
+    box-shadow:0 12px 40px rgba(0,0,0,.5), inset 0 0 0 1px rgba(255,255,255,.05);}
+  #nextbox{
+    position:absolute; top:8px; right:8px; width:64px; text-align:center;
+    background:rgba(0,0,0,.35); border-radius:10px; padding:5px 4px 6px;
+    border:1px solid rgba(255,255,255,.08); pointer-events:none;
   }
-  #hint{font-size:12px;opacity:.6;padding-bottom:6px;}
+  #nextbox .lbl{font-size:8px;letter-spacing:.3em;color:#cdb89a}
+  #nextcanvas{margin:2px auto 0; border-radius:0; box-shadow:none}
+  #evo{
+    width:100%; max-width:480px; display:flex; justify-content:center; gap:2px;
+    padding:8px 6px 12px; align-items:center; flex-wrap:nowrap;
+  }
+  #evo canvas{border-radius:0; box-shadow:none; opacity:.92}
+  #evo .arrow{color:#7a6650;font-size:10px}
+  #overlay{
+    position:absolute; inset:0; border-radius:14px;
+    background:rgba(20,14,10,.82); backdrop-filter:blur(3px);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:14px; opacity:0; pointer-events:none; transition:opacity .4s;
+  }
+  #overlay.show{opacity:1; pointer-events:auto}
+  #overlay h2{font-size:26px;color:var(--tan);letter-spacing:.1em}
+  #overlay p{font-size:14px;color:var(--cream)}
+  #overlay button{
+    font-family:inherit; font-size:15px; font-weight:700; letter-spacing:.1em;
+    padding:12px 34px; border:none; border-radius:999px; cursor:pointer;
+    background:var(--accent); color:#fff; box-shadow:0 4px 0 #8d3a31;
+  }
+  #overlay button:active{transform:translateY(3px); box-shadow:0 1px 0 #8d3a31}
+  #toast{
+    position:absolute; left:50%; top:38%; transform:translate(-50%,-50%);
+    font-weight:800; color:#ffe9b0; text-shadow:0 2px 6px rgba(0,0,0,.6);
+    font-size:20px; opacity:0; pointer-events:none; white-space:nowrap;
+  }
 </style>
 </head>
 <body>
 <header>
-  <h1>🐶 パグ太郎ゲーム</h1>
-  <div id="score">0</div>
-  <div id="best">ベスト 0</div>
+  <h1>パグゲーム<small>MUCHI-MUCHI EVOLUTION</small></h1>
+  <div class="scorebox">
+    <div class="lbl">SCORE</div>
+    <div class="val" id="score">0</div>
+    <div class="best" id="best">BEST 0</div>
+  </div>
 </header>
+
 <div id="wrap">
   <canvas id="game"></canvas>
-  <div id="next">つぎ<br><canvas id="nextCv" width="56" height="56"></canvas></div>
-  <div id="over">
-    <h2>ゲームオーバー</h2>
-    <div id="finalScore"></div>
-    <button onclick="resetGame()">もういちど</button>
+  <div id="nextbox"><div class="lbl">NEXT</div><canvas id="nextcanvas" width="52" height="52"></canvas></div>
+  <div id="toast"></div>
+  <div id="overlay">
+    <h2>GAME OVER</h2>
+    <p id="finalScore"></p>
+    <button id="retry">もういちど</button>
   </div>
 </div>
+
 <div id="evo"></div>
-<div id="hint">タップ／クリックでパグを落とす。同じパグがくっつくと進化！</div>
 
 <script>
-const {Engine, World, Bodies, Body, Events, Composite} = Matter;
-
-// ---- パグ図鑑(個体ごとに毛色・耳・目・口・しわが違う) ----
-const PUGS = [
-  {name:"豆パグ",   r:17,  score:1,  fur:"#F4D9A8", lite:"#FCEDD0", dark:"#D9B57E", mask:"#8A6E4F",
-   ear:{w:.28,h:.36,y:-.58,tilt:.45,pink:true}, eye:{style:"sparkle",s:.17,gap:.33,y:-.04},
-   mouth:"puppy", wrinkle:0, blush:true},
-  {name:"子パグ",   r:25,  score:3,  fur:"#EDC78C", lite:"#F8E3B8", dark:"#CFA268", mask:"#6E5238",
-   ear:{w:.32,h:.42,y:-.55,tilt:.5,pink:true}, eye:{style:"round",s:.15,gap:.35,y:-.05},
-   mouth:"smile", wrinkle:1, blush:true},
-  {name:"パグ",     r:34,  score:6,  fur:"#E3B877", lite:"#F2D7A4", dark:"#C49653", mask:"#3E2E1F",
-   ear:{w:.34,h:.46,y:-.52,tilt:.55}, eye:{style:"round",s:.14,gap:.36,y:-.06},
-   mouth:"smile", wrinkle:2},
-  {name:"黒パグ",   r:44,  score:10, fur:"#4A423C", lite:"#6E6259", dark:"#2E2925", mask:"#26211D",
-   ear:{w:.34,h:.46,y:-.52,tilt:.55}, eye:{style:"round",s:.13,gap:.36,y:-.06},
-   mouth:"tongue", wrinkle:1, gloss:true},
-  {name:"もちパグ", r:56,  score:15, fur:"#F4E3C3", lite:"#FCF3DF", dark:"#DCC49C", mask:"#9B7E5E",
-   ear:{w:.30,h:.40,y:-.56,tilt:.5}, eye:{style:"closed",s:.14,gap:.36,y:-.05},
-   mouth:"smile", wrinkle:1, jowl:true, blush:true},
-  {name:"ごろパグ", r:69,  score:21, fur:"#DFAF6E", lite:"#EFCF9C", dark:"#BE8E4D", mask:"#4A3826",
-   ear:{w:.36,h:.48,y:-.50,tilt:.6}, eye:{style:"sleepy",s:.13,gap:.36,y:-.06},
-   mouth:"drool", wrinkle:2, jowl:true},
-  {name:"でかパグ", r:84,  score:28, fur:"#D6A057", lite:"#E9C387", dark:"#B07F3E", mask:"#352718",
-   ear:{w:.36,h:.48,y:-.50,tilt:.6}, eye:{style:"grumpy",s:.12,gap:.37,y:-.07},
-   mouth:"underbite", wrinkle:3, jowl:true},
-  {name:"ぬしパグ", r:100, score:36, fur:"#B9A98F", lite:"#D6C9B2", dark:"#97876D", mask:"#6B5B45",
-   ear:{w:.34,h:.46,y:-.52,tilt:.55}, eye:{style:"tired",s:.11,gap:.36,y:-.07},
-   mouth:"frown", wrinkle:3, jowl:true, senior:true},
-  {name:"キングパグ",r:118, score:45, fur:"#E8BE7C", lite:"#F6DCA9", dark:"#C99B56", mask:"#3C2C1C",
-   ear:{w:.34,h:.46,y:-.52,tilt:.55}, eye:{style:"round",s:.12,gap:.36,y:-.07,brow:true},
-   mouth:"smile", wrinkle:2, jowl:true, crown:true, collar:true},
-  {name:"大仏パグ", r:138, score:55, fur:"#E2C188", lite:"#F3DFB4", dark:"#C3A065", mask:"#4E3B24",
-   ear:{w:.30,h:.62,y:-.40,tilt:.85}, eye:{style:"zen",s:.12,gap:.36,y:-.07},
-   mouth:"zen", wrinkle:2, jowl:true, halo:true, gem:true},
+"use strict";
+/* ============================================================
+   パグ図鑑 — 進化チェーン定義
+   ============================================================ */
+const SPECIES = [
+  {key:'puppy',  name:'子犬',     r:21,  score:1},
+  {key:'apricot',name:'アプリコット', r:28, score:3},
+  {key:'fawn',   name:'フォーン',  r:37,  score:6},
+  {key:'black',  name:'黒パグ',   r:48,  score:10},
+  {key:'old',    name:'白い老犬', r:61,  score:15},
+  {key:'king',   name:'パグ王',   r:76,  score:21},
+  {key:'devil',  name:'悪魔パグ', r:93,  score:28},
+  {key:'angel',  name:'天使パグ', r:112, score:36},
+  {key:'god',    name:'黄金パグ神', r:134, score:50},
 ];
+const YUTA = {key:'yuta', name:'ゆうた', r:34, score:0};
+const YUTA_RATE = 0.07;       // 出現確率
+const DROP_MAX_TIER = 4;      // 落とせるのは tier 0..4
+const W = 420, H = 620, TOPLINE = 110;
 
-const W=420, H=620, WALL=12, LINE_Y=110, DROP_Y=70;
+/* ============================================================
+   Matter.js セットアップ
+   ============================================================ */
+const {Engine, Bodies, Composite, Events, Body} = Matter;
+const engine = Engine.create({gravity:{x:0, y:1.1}});
+const world = engine.world;
 
-const cv=document.getElementById("game");
-cv.width=W; cv.height=H;
-const ctx=cv.getContext("2d");
+const wallOpt = {isStatic:true, friction:.4, restitution:.1};
+Composite.add(world, [
+  Bodies.rectangle(W/2, H+30, W+120, 60, wallOpt),
+  Bodies.rectangle(-30, H/2, 60, H*2, wallOpt),
+  Bodies.rectangle(W+30, H/2, 60, H*2, wallOpt),
+]);
 
-// 画面に収める
-function fit(){
-  const s=Math.min((innerWidth-12)/W,(innerHeight-150)/H,1);
-  cv.style.width=W*s+"px"; cv.style.height=H*s+"px";
-  document.getElementById("over").style.width=W*s+"px";
+/* ============================================================
+   ゲーム状態
+   ============================================================ */
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+let DPR = Math.min(2, window.devicePixelRatio||1);
+let viewScale = 1;
+
+function fitCanvas(){
+  const maxW = Math.min(window.innerWidth-16, 480);
+  const maxH = window.innerHeight - 150;
+  viewScale = Math.min(maxW/W, maxH/H);
+  canvas.style.width  = (W*viewScale)+'px';
+  canvas.style.height = (H*viewScale)+'px';
+  canvas.width  = W*viewScale*DPR;
+  canvas.height = H*viewScale*DPR;
 }
-addEventListener("resize",fit); fit();
+fitCanvas();
+addEventListener('resize', fitCanvas);
 
-// ---- 物理 ----
-let engine, score=0, best=0, gameOver=false;
-let currentLevel=0, nextLevel=0, canDrop=true, pointerX=W/2;
-let overTimer=0;
+let score=0, best=0, gameOver=false;
+let currentTier = 0, nextTier = 0, currentIsYuta=false, nextIsYuta=false;
+let dropX = W/2, canDrop = true;
+let particles = [];
+let dangerTimer = 0;
 
-function makeWalls(world){
-  const opt={isStatic:true,render:{visible:false}};
-  World.add(world,[
-    Bodies.rectangle(W/2,H+WALL/2,W,WALL*2,opt),
-    Bodies.rectangle(-WALL/2,H/2,WALL*2,H*2,opt),
-    Bodies.rectangle(W+WALL/2,H/2,WALL*2,H*2,opt),
-  ]);
+const $score=document.getElementById('score'), $best=document.getElementById('best');
+const $overlay=document.getElementById('overlay'), $final=document.getElementById('finalScore');
+const $toast=document.getElementById('toast');
+let toastT=0;
+
+function showToast(msg){ $toast.textContent=msg; toastT=1; }
+
+function pickNext(){
+  nextIsYuta = Math.random() < YUTA_RATE;
+  nextTier = Math.floor(Math.random()*(DROP_MAX_TIER+1));
 }
+function advance(){
+  currentTier = nextTier; currentIsYuta = nextIsYuta;
+  pickNext();
+  if(typeof drawNextPreview!=='undefined') drawNextPreview();
+}
+pickNext(); advance();
 
-function spawnPug(level,x,y,still){
-  const p=PUGS[level];
-  const b=Bodies.circle(x,y,p.r,{
-    restitution:.15, friction:.4, frictionStatic:.6, density:.0012,
-    label:"pug",
+/* ============================================================
+   ボディ生成・合体
+   ============================================================ */
+function makePug(tier, x, y, isYuta=false){
+  const sp = isYuta ? YUTA : SPECIES[tier];
+  const b = Bodies.circle(x, y, sp.r*0.92, {
+    restitution:.18, friction:.35, frictionAir:.008, density:.0012,
+    label:'pug'
   });
-  b.pugLevel=level;
-  b.bornAt=performance.now();
-  if(still) Body.setStatic(b,false);
-  World.add(engine.world,b);
+  b.plugin = {tier, isYuta, born:performance.now(), pop:0};
+  Composite.add(world, b);
   return b;
 }
 
-function pickLevel(){ return Math.floor(Math.random()*Math.min(5,3+Math.floor(score/300))); }
+function spawnParticles(x,y,color,n=14,big=false){
+  for(let i=0;i<n;i++){
+    const a=Math.random()*Math.PI*2, s=(big?3:2)+Math.random()*3;
+    particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-2,
+      life:1, r:(big?5:3)+Math.random()*4, color});
+  }
+}
 
-function initGame(){
-  engine=Engine.create();
-  engine.gravity.y=1.1;
-  makeWalls(engine.world);
-  score=0; gameOver=false; canDrop=true; overTimer=0;
-  currentLevel=pickLevel(); nextLevel=pickLevel();
-  updateHUD();
-  document.getElementById("over").style.display="none";
-
-  Events.on(engine,"collisionStart",e=>{
-    for(const pair of e.pairs){
-      const a=pair.bodyA, b=pair.bodyB;
-      if(a.label!=="pug"||b.label!=="pug") continue;
-      if(a.pugLevel!==b.pugLevel) continue;
-      if(a.merged||b.merged) continue;
-      if(a.pugLevel>=PUGS.length-1) continue;
-      a.merged=b.merged=true;
-      const nx=(a.position.x+b.position.x)/2;
-      const ny=(a.position.y+b.position.y)/2;
-      World.remove(engine.world,a);
-      World.remove(engine.world,b);
-      const nl=a.pugLevel+1;
-      spawnPug(nl,nx,ny);
-      score+=PUGS[nl].score;
-      pop(nx,ny,PUGS[nl].r);
-      updateHUD();
+let mergeQueue=[];
+Events.on(engine,'collisionStart', e=>{
+  for(const pair of e.pairs){
+    const A=pair.bodyA, B=pair.bodyB;
+    if(A.label!=='pug'||B.label!=='pug') continue;
+    const pa=A.plugin, pb=B.plugin;
+    if(!pa||!pb) continue;
+    // ゆうた:パグを見ると抱きしめて連れて帰る(両方消滅+ボーナス)
+    if(pa.isYuta||pb.isYuta){
+      mergeQueue.push({type:'yuta',A,B}); continue;
     }
-  });
+    if(pa.tier===pb.tier && pa.tier<SPECIES.length-1){
+      mergeQueue.push({type:'merge',A,B,tier:pa.tier});
+    }
+  }
+});
+
+function processMerges(){
+  const removed=new Set();
+  for(const m of mergeQueue){
+    if(removed.has(m.A.id)||removed.has(m.B.id)) continue;
+    const mx=(m.A.position.x+m.B.position.x)/2;
+    const my=(m.A.position.y+m.B.position.y)/2;
+    if(m.type==='merge'){
+      Composite.remove(world,m.A); Composite.remove(world,m.B);
+      removed.add(m.A.id); removed.add(m.B.id);
+      const nt=m.tier+1;
+      const nb=makePug(nt,mx,my);
+      nb.plugin.pop=1;
+      const pts=SPECIES[nt].score;
+      score+=pts;
+      spawnParticles(mx,my,'#ffd98a',16,nt>=5);
+      if(nt===SPECIES.length-1){ score+=200; showToast('🌟 黄金パグ神 降臨!! +200'); spawnParticles(mx,my,'#ffe06a',40,true); }
+    }else{
+      // ゆうた回収
+      const both = m.A.plugin.isYuta && m.B.plugin.isYuta;
+      Composite.remove(world,m.A); Composite.remove(world,m.B);
+      removed.add(m.A.id); removed.add(m.B.id);
+      const other = m.A.plugin.isYuta? m.B.plugin : m.A.plugin;
+      const bonus = both? 150 : 30+(other.tier+1)*15;
+      score+=bonus;
+      spawnParticles(mx,my,'#9ad6ff',24,true);
+      showToast(both?'ゆうた友情コンボ! +150':'ゆうた「パグかわいい〜」 +'+bonus);
+    }
+  }
+  mergeQueue=[];
+  $score.textContent=score;
+  if(score>best){best=score;$best.textContent='BEST '+best;}
 }
 
-function resetGame(){ initGame(); }
-
-function updateHUD(){
-  document.getElementById("score").textContent=score;
-  best=Math.max(best,score);
-  document.getElementById("best").textContent="ベスト "+best;
-  drawIcon(document.getElementById("nextCv"),nextLevel,24);
+/* ============================================================
+   入力
+   ============================================================ */
+function ptr(e){
+  const rect=canvas.getBoundingClientRect();
+  const cx=(e.touches?e.touches[0].clientX:e.clientX)-rect.left;
+  return cx/viewScale;
 }
+function clampX(x,r){ return Math.max(r+6, Math.min(W-r-6, x)); }
 
-// ---- 操作 ----
-function ptX(e){
-  const rect=cv.getBoundingClientRect();
-  const x=(e.touches?e.touches[0].clientX:e.clientX)-rect.left;
-  return x*(W/rect.width);
-}
-function clampX(x,r){ return Math.max(WALL+r+2,Math.min(W-WALL-r-2,x)); }
-
-cv.addEventListener("pointermove",e=>{ pointerX=ptX(e); });
-cv.addEventListener("pointerdown",e=>{ pointerX=ptX(e); });
-cv.addEventListener("pointerup",e=>{
+canvas.addEventListener('pointermove', e=>{ if(!gameOver) dropX=ptr(e); });
+canvas.addEventListener('pointerdown', e=>{ if(!gameOver) dropX=ptr(e); });
+canvas.addEventListener('pointerup', e=>{
   if(gameOver||!canDrop) return;
-  pointerX=ptX(e);
-  const r=PUGS[currentLevel].r;
-  spawnPug(currentLevel,clampX(pointerX,r),DROP_Y);
+  const sp=currentIsYuta?YUTA:SPECIES[currentTier];
+  const x=clampX(ptr(e), sp.r);
+  makePug(currentTier, x, 60, currentIsYuta);
   canDrop=false;
-  setTimeout(()=>{
-    currentLevel=nextLevel;
-    nextLevel=pickLevel();
-    canDrop=true;
-    updateHUD();
-  },550);
+  setTimeout(()=>{advance(); canDrop=true;}, 520);
 });
 
-// ---- エフェクト ----
-let pops=[];
-function pop(x,y,r){ pops.push({x,y,r,t:0}); }
-
-// ---- パグ描画 ----
-// 頭のシルエット(自然な丸み。やや横広で、頬とジョウルが軽く張る)
-function headPath(g,r){
-  g.beginPath();
-  g.moveTo(0,-r*.88);
-  g.bezierCurveTo( r*.60,-r*.92,  r*1.00,-r*.52,  r*1.04,-r*.04);
-  g.bezierCurveTo( r*1.07, r*.40,  r*.90, r*.82,  r*.52, r*.96);
-  g.bezierCurveTo( r*.36, r*1.02,  r*.14, r*1.00,  r*.08, r*.92);
-  g.quadraticCurveTo(0, r*.88, -r*.08, r*.92);
-  g.bezierCurveTo(-r*.14, r*1.00, -r*.36, r*1.02, -r*.52, r*.96);
-  g.bezierCurveTo(-r*.90, r*.82, -r*1.07, r*.40, -r*1.04,-r*.04);
-  g.bezierCurveTo(-r*1.00,-r*.52, -r*.60,-r*.92, 0,-r*.88);
-  g.closePath();
-}
-
-function drawPug(g,level,r,angle){
-  const p=PUGS[level];
-  g.save(); g.rotate(angle);
-  g.lineCap="round";
-
-  // 後光(大仏パグ)
-  if(p.halo){
-    g.strokeStyle="rgba(232,186,76,.35)"; g.lineWidth=r*.12;
-    g.beginPath(); g.arc(0,0,r*1.14,0,Math.PI*2); g.stroke();
-    g.strokeStyle="rgba(232,186,76,.85)"; g.lineWidth=r*.05;
-    g.beginPath(); g.arc(0,0,r*1.14,0,Math.PI*2); g.stroke();
-  }
-
-  // 頭(毛並みグラデーション)
-  const gr=g.createRadialGradient(-r*.3,-r*.4,r*.1,0,0,r*1.06);
-  gr.addColorStop(0,p.lite); gr.addColorStop(.6,p.fur); gr.addColorStop(1,p.dark);
-  g.fillStyle=gr;
-  headPath(g,r); g.fill();
-  g.strokeStyle="rgba(40,28,16,.3)"; g.lineWidth=Math.max(1.2,r*.025); g.stroke();
-  // 顎下中央のくぼみ線
-  g.strokeStyle="rgba(40,28,16,.18)"; g.lineWidth=Math.max(1,r*.02);
-  g.beginPath(); g.moveTo(0,r*.88); g.lineTo(0,r*.70); g.stroke();
-
-  // 目のまわりの黒い毛(マスクが目元まで広がる)
-  for(const s of[-1,1]){
-    const eg2=g.createRadialGradient(s*r*.40,r*.04,r*.02,s*r*.40,r*.04,r*.30);
-    eg2.addColorStop(0,p.mask); eg2.addColorStop(.6,p.mask+"B3"); eg2.addColorStop(1,p.mask+"00");
-    g.fillStyle=eg2;
-    g.beginPath(); g.ellipse(s*r*.40,r*.06,r*.28,r*.26,0,0,Math.PI*2); g.fill();
-  }
-
-  // 黒いマズル(顔の下半分に大きく、外側へフェード)
-  const mg=g.createRadialGradient(0,r*.34,r*.06,0,r*.34,r*.66);
-  mg.addColorStop(0,p.mask); mg.addColorStop(.55,p.mask+"E6"); mg.addColorStop(1,p.mask+"00");
-  g.fillStyle=mg;
-  g.beginPath(); g.ellipse(0,r*.36,r*.50,r*.55,0,0,Math.PI*2); g.fill();
-
-  // たれた頬(ジョウル)
-  const jw=p.jowl?1.1:1;
-  g.fillStyle=p.mask;
-  for(const s of[-1,1]){
-    g.beginPath(); g.ellipse(s*r*.22,r*.52,r*.28*jw,r*.25*jw,s*.15,0,Math.PI*2); g.fill();
-  }
-  g.strokeStyle="rgba(0,0,0,.3)"; g.lineWidth=Math.max(1,r*.022);
-  for(const s of[-1,1]){
-    g.beginPath(); g.arc(s*r*.22,r*.50,r*.23*jw,Math.PI*.15,Math.PI*.85); g.stroke();
-  }
-
-  // 白いマズル(老犬)
-  if(p.senior){
-    g.fillStyle="rgba(243,238,226,.4)";
-    g.beginPath(); g.ellipse(0,r*.40,r*.40,r*.36,0,0,Math.PI*2); g.fill();
-  }
-
-  const ny=r*.16;
-
-  // 鼻の上の太いしわ(ノーズロール)
-  g.strokeStyle="rgba(0,0,0,.45)"; g.lineWidth=Math.max(1.5,r*.05);
-  g.beginPath(); g.arc(0,ny+r*.07,r*.21,Math.PI*1.15,Math.PI*1.85); g.stroke();
-
-  // 困り顔のしわ(目頭から額へ立ち上がる)
-  g.strokeStyle="rgba(45,30,15,.45)";
-  g.lineWidth=Math.max(1.2,r*.045);
-  for(const s of[-1,1]){
-    g.beginPath();
-    g.moveTo(s*r*.16,-r*.04);
-    g.quadraticCurveTo(s*r*.10,-r*.28,s*r*.30,-r*.44);
-    g.stroke();
-  }
-  // 額の横じわ(本数は個体差)
-  for(let i=0;i<p.wrinkle;i++){
-    g.lineWidth=Math.max(1,r*.04-i*r*.007);
-    g.beginPath();
-    g.arc(0,-r*.05-i*r*.15,r*(.5-i*.08),Math.PI*1.28,Math.PI*1.72);
-    g.stroke();
-  }
-
-  // ほっぺ
-  if(p.blush){
-    g.fillStyle="rgba(235,140,130,.3)";
-    for(const s of[-1,1]){
-      g.beginPath(); g.ellipse(s*r*.60,r*.22,r*.12,r*.075,0,0,Math.PI*2); g.fill();
-    }
-  }
-  // 黒パグの毛ヅヤ
-  if(p.gloss){
-    g.fillStyle="rgba(255,255,255,.15)";
-    g.beginPath(); g.ellipse(-r*.33,-r*.45,r*.28,r*.14,-.6,0,Math.PI*2); g.fill();
-  }
-
-  // 目(大きく黒目がち・うるうる、表情は個体差)
-  const ex=r*.40, ey=r*.04, es=r*p.eye.s*1.2, st=p.eye.style;
-  for(const s of[-1,1]){
-    const x=s*ex;
-    if(st==="closed"){
-      g.strokeStyle="#1A110A"; g.lineWidth=Math.max(1.4,r*.04);
-      g.beginPath(); g.arc(x,ey+es*.4,es,Math.PI*1.12,Math.PI*1.88); g.stroke();
-    } else if(st==="zen"){
-      g.strokeStyle="#1A110A"; g.lineWidth=Math.max(1.4,r*.04);
-      g.beginPath(); g.arc(x,ey-es*.4,es,Math.PI*.12,Math.PI*.88); g.stroke();
-    } else {
-      g.fillStyle="#0E0A06";
-      g.beginPath(); g.ellipse(x,ey,es,es*1.05,0,0,Math.PI*2); g.fill();
-      g.fillStyle="#3A2414";
-      g.beginPath(); g.arc(x,ey+es*.05,es*.8,0,Math.PI*2); g.fill();
-      g.fillStyle="#0E0A06";
-      g.beginPath(); g.arc(x,ey+es*.08,es*.5,0,Math.PI*2); g.fill();
-      g.fillStyle="rgba(255,255,255,.9)";
-      g.beginPath(); g.ellipse(x-es*.32,ey-es*.35,es*.30,es*.22,-.5,0,Math.PI*2); g.fill();
-      g.fillStyle="rgba(255,255,255,.55)";
-      g.beginPath(); g.arc(x+es*.3,ey+es*.3,es*.12,0,Math.PI*2); g.fill();
-      g.strokeStyle="rgba(20,12,6,.6)"; g.lineWidth=Math.max(1,r*.025);
-      g.beginPath(); g.arc(x,ey,es*1.02,Math.PI*1.1,Math.PI*1.9); g.stroke();
-      if(st==="sleepy"||st==="tired"){
-        g.fillStyle=p.fur;
-        g.beginPath(); g.ellipse(x,ey-es*.55,es*1.15,es*.72,0,0,Math.PI*2); g.fill();
-        g.strokeStyle="rgba(40,25,12,.5)"; g.lineWidth=Math.max(1,r*.03);
-        g.beginPath(); g.arc(x,ey-es*.1,es,Math.PI*1.1,Math.PI*1.9); g.stroke();
-        if(st==="tired"){
-          g.beginPath(); g.arc(x,ey+es*.75,es*.8,Math.PI*.2,Math.PI*.8); g.stroke();
-        }
-      }
-      if(st==="grumpy"){
-        g.strokeStyle="#1A110A"; g.lineWidth=Math.max(1.4,r*.045);
-        g.beginPath();
-        g.moveTo(x+s*es*1.0,ey-es*1.8); g.lineTo(x-s*es*.6,ey-es*1.15);
-        g.stroke();
-      } else if(p.eye.brow){
-        g.strokeStyle="#1A110A"; g.lineWidth=Math.max(1.4,r*.04);
-        g.beginPath(); g.arc(x,ey-es*1.25,es*.9,Math.PI*1.2,Math.PI*1.8); g.stroke();
-      }
-    }
-  }
-  if(p.senior){
-    g.fillStyle="rgba(245,240,228,.9)";
-    for(const s of[-1,1]){
-      g.beginPath(); g.ellipse(s*ex,ey-es*1.5,es*.7,es*.28,s*.3,0,Math.PI*2); g.fill();
-    }
-  }
-
-  // 鼻(低くて幅広・鼻孔つき)
-  g.fillStyle="#0D0905";
-  g.beginPath(); g.ellipse(0,ny,r*.14,r*.095,0,0,Math.PI*2); g.fill();
-  g.fillStyle="rgba(255,255,255,.18)";
-  g.beginPath(); g.ellipse(-r*.045,ny-r*.04,r*.05,r*.024,-.3,0,Math.PI*2); g.fill();
-  g.fillStyle="#000";
-  for(const s of[-1,1]){
-    g.beginPath(); g.ellipse(s*r*.055,ny,r*.022,r*.045,s*.35,0,Math.PI*2); g.fill();
-  }
-
-  // 口(ジョウルの間に小さく)
-  g.strokeStyle="#0D0905"; g.lineWidth=Math.max(1.1,r*.028);
-  const my=r*.44;
-  g.beginPath(); g.moveTo(0,ny+r*.10); g.lineTo(0,my-r*.06); g.stroke();
-  if(p.mouth==="underbite"){
-    g.beginPath(); g.moveTo(-r*.17,my); g.quadraticCurveTo(0,my+r*.06,r*.17,my); g.stroke();
-    g.fillStyle="#FFF6E6";
-    for(const s of[-1,1]){
-      g.beginPath();
-      g.moveTo(s*r*.08-r*.022,my+r*.05);
-      g.lineTo(s*r*.08+r*.022,my+r*.05);
-      g.lineTo(s*r*.08,my-r*.005);
-      g.closePath(); g.fill();
-    }
-  } else if(p.mouth==="frown"){
-    g.beginPath(); g.moveTo(-r*.14,my+r*.04); g.quadraticCurveTo(0,my-r*.04,r*.14,my+r*.04); g.stroke();
-  } else if(p.mouth==="zen"){
-    g.beginPath(); g.moveTo(-r*.13,my-r*.01); g.quadraticCurveTo(0,my+r*.05,r*.13,my-r*.01); g.stroke();
-  } else {
-    g.beginPath();
-    g.moveTo(0,my-r*.06);
-    g.arc(-r*.07,my-r*.06,r*.07,0,Math.PI*.7);
-    g.moveTo(0,my-r*.06);
-    g.arc(r*.07,my-r*.06,r*.07,Math.PI,Math.PI*.3,true);
-    g.stroke();
-    if(p.mouth==="smile"){
-      g.fillStyle="#D9707F";
-      g.beginPath(); g.ellipse(0,my+r*.03,r*.06,r*.075,0,0,Math.PI*2); g.fill();
-    }
-    if(p.mouth==="tongue"){
-      g.fillStyle="#D9707F";
-      g.beginPath(); g.ellipse(r*.03,my+r*.08,r*.09,r*.14,.12,0,Math.PI*2); g.fill();
-      g.strokeStyle="rgba(0,0,0,.2)"; g.lineWidth=Math.max(.8,r*.015);
-      g.beginPath(); g.moveTo(r*.03,my); g.lineTo(r*.04,my+r*.17); g.stroke();
-    }
-    if(p.mouth==="drool"){
-      g.fillStyle="rgba(160,200,235,.8)";
-      g.beginPath(); g.ellipse(r*.19,my+r*.06,r*.035,r*.065,0,0,Math.PI*2); g.fill();
-    }
-  }
-
-  // 耳(輪郭の外へ飛び出して、頭の横にだらんと垂れるボタン耳)
-  const earBase=p.senior?"#4A443A":"#33271C", earTip="#1B130D";
-  for(const s of[-1,1]){
-    const tipY=r*(p.ear.h-.26);   // 垂れの長さ(個体差)
-    g.beginPath();
-    g.moveTo(s*r*.36,-r*.82);
-    g.quadraticCurveTo(s*r*1.05,-r*.76, s*r*1.13,-r*.28);
-    g.quadraticCurveTo(s*r*1.11, tipY-r*.08, s*r*.80, tipY);
-    g.quadraticCurveTo(s*r*.60,-r*.24, s*r*.36,-r*.55);
-    g.closePath();
-    const eg=g.createLinearGradient(s*r*.4,-r*.8,s*r*1.0,tipY);
-    eg.addColorStop(0,earBase); eg.addColorStop(1,earTip);
-    g.fillStyle=eg; g.fill();
-    g.strokeStyle="rgba(0,0,0,.35)"; g.lineWidth=Math.max(1,r*.02); g.stroke();
-    // 折り目のハイライト
-    g.strokeStyle="rgba(255,255,255,.09)"; g.lineWidth=Math.max(1,r*.03);
-    g.beginPath();
-    g.moveTo(s*r*.46,-r*.70);
-    g.quadraticCurveTo(s*r*.86,-r*.48,s*r*.92,-r*.06);
-    g.stroke();
-  }
-
-  // 首輪(キングパグ)
-  if(p.collar){
-    g.strokeStyle="#A33434"; g.lineWidth=r*.09;
-    g.beginPath(); g.arc(0,0,r*.96,Math.PI*.32,Math.PI*.68); g.stroke();
-    g.fillStyle="#F4C430";
-    g.beginPath(); g.arc(0,r*.96,r*.06,0,Math.PI*2); g.fill();
-  }
-  // 王冠
-  if(p.crown){
-    g.fillStyle="#F4C430";
-    g.beginPath();
-    g.moveTo(-r*.32,-r*.80); g.lineTo(-r*.32,-r*1.04);
-    g.lineTo(-r*.16,-r*.88); g.lineTo(0,-r*1.10);
-    g.lineTo(r*.16,-r*.88); g.lineTo(r*.32,-r*1.04);
-    g.lineTo(r*.32,-r*.80); g.closePath(); g.fill();
-    g.fillStyle="#C0392B";
-    g.beginPath(); g.arc(0,-r*.88,r*.045,0,Math.PI*2); g.fill();
-  }
-  // 白毫(大仏パグの額の点)
-  if(p.gem){
-    g.fillStyle="#C0392B";
-    g.beginPath(); g.arc(0,-r*.42,r*.045,0,Math.PI*2); g.fill();
-  }
-
-  g.restore();
-}
-
-function drawIcon(c,level,r){
-  const g=c.getContext("2d");
-  g.clearRect(0,0,c.width,c.height);
-  g.save(); g.translate(c.width/2,c.height/2+3);
-  drawPug(g,level,r,0); g.restore();
-}
-
-// 進化図鑑
-const evo=document.getElementById("evo");
-PUGS.forEach((p,i)=>{
-  const c=document.createElement("canvas");
-  const s=14+i*2;
-  c.width=c.height=s*2+12;
-  evo.appendChild(c);
-  drawIcon(c,i,s);
-  c.title=p.name;
+document.getElementById('retry').addEventListener('click', ()=>{
+  for(const b of Composite.allBodies(world)) if(b.label==='pug') Composite.remove(world,b);
+  score=0; $score.textContent='0'; gameOver=false; dangerTimer=0;
+  $overlay.classList.remove('show'); pickNext(); advance(); canDrop=true;
 });
 
-// ---- メインループ ----
-function loop(){
-  if(!gameOver) Engine.update(engine,1000/60);
-  ctx.clearRect(0,0,W,H);
-
-  // 危険ライン
-  ctx.strokeStyle="rgba(224,90,78,.6)"; ctx.setLineDash([8,6]); ctx.lineWidth=2;
-  ctx.beginPath(); ctx.moveTo(0,LINE_Y); ctx.lineTo(W,LINE_Y); ctx.stroke();
-  ctx.setLineDash([]);
-
-  // ドロップ予告
-  if(canDrop&&!gameOver){
-    const r=PUGS[currentLevel].r;
-    const x=clampX(pointerX,r);
-    ctx.strokeStyle="rgba(74,53,38,.15)";
-    ctx.beginPath(); ctx.moveTo(x,DROP_Y); ctx.lineTo(x,H); ctx.stroke();
-    ctx.save(); ctx.translate(x,DROP_Y); ctx.globalAlpha=.95;
-    drawPug(ctx,currentLevel,r,0); ctx.restore();
-  }
-
-  // パグたち
+/* ============================================================
+   ゲームオーバー判定
+   ============================================================ */
+function checkGameOver(dt){
   let danger=false;
   const now=performance.now();
-  for(const b of Composite.allBodies(engine.world)){
-    if(b.label!=="pug") continue;
-    ctx.save(); ctx.translate(b.position.x,b.position.y);
-    drawPug(ctx,b.pugLevel,PUGS[b.pugLevel].r,b.angle);
-    ctx.restore();
-    if(now-b.bornAt>1500 && b.position.y-PUGS[b.pugLevel].r<LINE_Y) danger=true;
+  for(const b of Composite.allBodies(world)){
+    if(b.label!=='pug') continue;
+    if(now-b.plugin.born<1600) continue;
+    if(b.position.y - b.circleRadius < TOPLINE && Math.abs(b.velocity.y)<.3){ danger=true; break; }
+  }
+  dangerTimer = danger? dangerTimer+dt : 0;
+  if(dangerTimer>1.4 && !gameOver){
+    gameOver=true;
+    $final.textContent='SCORE '+score;
+    $overlay.classList.add('show');
+  }
+}
+</script>
+<script>
+"use strict";
+/* ============================================================
+   描画 — リアル寄りパグフェイス(凹凸シルエット)
+   各タイプの設定
+   ============================================================ */
+const PALETTE = {
+  puppy:  {coat:'#ecd4ad', coat2:'#d3b384', mask:'#2a2018', ear:'#2a2018', eye:'#3a261a', tongue:true, eyeMask:true, thumb:true, pupScale:1.1},
+  apricot:{coat:'#e0bb84', coat2:'#c39a5c', mask:'#1d1510', ear:'#1d1510', eye:'#2e1d10', eyeMask:true, thumb:true},
+  fawn:   {coat:'#e3c9a0', coat2:'#cda874', mask:'#1a1209', ear:'#1a1209', eye:'#3a2412', eyeMask:true, thumb:true},
+  black:  {coat:'#34302e', coat2:'#1c1917', mask:'#141110', ear:'#141110', eye:'#100b08', sheen:true},
+  old:    {coat:'#cfc6ba', coat2:'#a89e90', mask:'#8f857a', ear:'#7b7166', eye:'#4a4038', oldface:true},
+  king:   {coat:'#e3c9a0', coat2:'#cda874', mask:'#1a1209', ear:'#1a1209', eye:'#3a2412', eyeMask:true, thumb:true, crown:true},
+  devil:  {coat:'#7e3030', coat2:'#511c1c', mask:'#2a1010', ear:'#2a1010', eye:'#e8b400', eyeMask:true, horns:true, evil:true},
+  angel:  {coat:'#f2ead9', coat2:'#d4c6ab', mask:'#8d7a5e', ear:'#8d7a5e', eye:'#4f3b26', eyeMask:true, halo:true, wings:true},
+  god:    {coat:'#e9c25a', coat2:'#c2922f', mask:'#8a5e16', ear:'#8a5e16', eye:'#5b3c08', halo:true, rays:true, crown:false, sheen:true},
+};
+
+/* 凹凸のあるパグ輪郭(単位100基準)。耳・頬・あご肉が外に張り出す */
+function pugSilhouette(c){
+  c.beginPath();
+  c.moveTo(0,-96);
+  // 頭頂(右へ) わずかな起伏
+  c.bezierCurveTo(20,-99, 38,-92, 52,-80);
+  // 右耳(外側に張り出し、垂れ耳)
+  c.bezierCurveTo(78,-86, 96,-66, 92,-40);
+  c.bezierCurveTo(90,-26, 80,-18, 72,-16);
+  // 右頬の膨らみ
+  c.bezierCurveTo(94,-2, 100,28, 84,56);
+  // 右ジョール(垂れた口横の肉)
+  c.bezierCurveTo(76,76, 58,92, 34,94);
+  // あご中央のくぼみ
+  c.bezierCurveTo(20,96, 10,90, 0,90);
+  c.bezierCurveTo(-10,90, -20,96, -34,94);
+  // 左ジョール
+  c.bezierCurveTo(-58,92, -76,76, -84,56);
+  // 左頬
+  c.bezierCurveTo(-100,28, -94,-2, -72,-16);
+  // 左耳
+  c.bezierCurveTo(-80,-18, -90,-26, -92,-40);
+  c.bezierCurveTo(-96,-66, -78,-86, -52,-80);
+  c.bezierCurveTo(-38,-92, -20,-99, 0,-96);
+  c.closePath();
+}
+
+function drawWrinkle(c, x1,y1, cx,cy, x2,y2, w, col){
+  c.strokeStyle=col; c.lineWidth=w; c.lineCap='round';
+  c.beginPath(); c.moveTo(x1,y1); c.quadraticCurveTo(cx,cy,x2,y2); c.stroke();
+}
+
+function drawPug(c, P){
+  const maskCol = P.mask;
+  const line = P.evil? '#2a0e0e' : (P.oldface? '#6f655a' : '#3a2a1c');
+
+  // ===== ベース毛色(フラット寄りの陰影) =====
+  pugSilhouette(c);
+  const g=c.createLinearGradient(0,-96,0,96);
+  g.addColorStop(0, P.coat);
+  g.addColorStop(.55, P.coat);
+  g.addColorStop(1, P.coat2);
+  c.fillStyle=g; c.fill();
+  // 頬・あごの柔らかい陰
+  c.save(); pugSilhouette(c); c.clip();
+  c.fillStyle='rgba(0,0,0,.06)';
+  c.beginPath(); c.ellipse(0,70,80,40,0,0,7); c.fill();
+  c.beginPath(); c.ellipse(-70,30,26,40,0,0,7); c.fill();
+  c.beginPath(); c.ellipse(70,30,26,40,0,0,7); c.fill();
+  c.restore();
+
+  // ===== 耳(三角のボタン耳・濃い茶) =====
+  function ear(sx){
+    c.save(); c.scale(sx,1);
+    c.fillStyle=P.ear;
+    c.beginPath();
+    c.moveTo(46,-78);
+    c.bezierCurveTo(74,-86, 92,-66, 90,-40);
+    c.bezierCurveTo(89,-22, 78,-12, 64,-14);
+    c.bezierCurveTo(54,-30, 46,-54, 46,-78);
+    c.closePath(); c.fill();
+    c.strokeStyle=line; c.lineWidth=3; c.stroke();
+    // 内側の折り返し陰
+    c.fillStyle='rgba(0,0,0,.28)';
+    c.beginPath();
+    c.moveTo(58,-66); c.bezierCurveTo(76,-66, 82,-48, 76,-30);
+    c.bezierCurveTo(70,-26, 62,-34, 58,-50);
+    c.closePath(); c.fill();
+    c.restore();
+  }
+  ear(1); ear(-1);
+
+  // ===== 輪郭線(くっきり) =====
+  pugSilhouette(c);
+  c.strokeStyle=line; c.lineWidth=3.5; c.lineJoin='round'; c.stroke();
+
+  // ===== 額のしわ(控えめ) =====
+  const wr = P.oldface? 'rgba(120,108,96,.45)' : 'rgba(58,42,28,.4)';
+  drawWrinkle(c,-26,-56, 0,-63, 26,-56, 3, wr);
+  drawWrinkle(c,-20,-46, 0,-52, 20,-46, 2.6, wr);
+  if(P.thumb){ // 親指のあと(縦じわ)
+    c.strokeStyle='rgba(58,42,28,.42)'; c.lineWidth=3; c.lineCap='round';
+    c.beginPath(); c.moveTo(0,-50); c.lineTo(0,-30); c.stroke();
+  }
+  if(P.oldface){
+    c.fillStyle='rgba(255,255,255,.5)';
+    c.beginPath(); c.ellipse(0,-62,28,13,0,0,7); c.fill();
   }
 
-  // ゲームオーバー判定(1秒継続)
-  if(!gameOver){
-    overTimer=danger?overTimer+1/60:0;
-    if(overTimer>1){
-      gameOver=true;
-      document.getElementById("finalScore").textContent="スコア "+score;
-      document.getElementById("over").style.display="flex";
-      updateHUD();
+  // ===== 茶色マスク(マズル+両目を囲む“メガネ”状の面) =====
+  function maskBlob(cx,cy,rx,ry,solid){
+    const m=c.createRadialGradient(cx,cy,2,cx,cy,Math.max(rx,ry));
+    m.addColorStop(0,maskCol); m.addColorStop(solid,maskCol);
+    m.addColorStop(1,'rgba(0,0,0,0)');
+    c.fillStyle=m;
+    c.beginPath(); c.ellipse(cx,cy,rx,ry,0,0,7); c.fill();
+  }
+  if(P.eyeMask){
+    maskBlob(-33,-2,27,29,.8);   // 左目まわり
+    maskBlob( 33,-2,27,29,.8);   // 右目まわり
+    maskBlob(0,14,30,26,.82);    // 目の間
+  }
+  maskBlob(0,46,49,40,.84);      // マズル本体
+  // マズル中央の濃い芯
+  c.fillStyle='rgba(0,0,0,.35)';
+  c.beginPath(); c.ellipse(0,40,30,26,0,0,7); c.fill();
+
+  // ===== 目(大きな丸目・くっきりハイライト) =====
+  const eyY=-2, eyX=33, eR=18*(P.pupScale||1);
+  for(const s of [-1,1]){
+    const x=s*eyX;
+    if(P.oldface){
+      c.strokeStyle='#5a4f44'; c.lineWidth=4.5; c.lineCap='round';
+      c.beginPath(); c.moveTo(x-eR,eyY+2); c.quadraticCurveTo(x,eyY+10,x+eR,eyY+2); c.stroke();
+    }else{
+      // 眼の縁(やや明るい肌色の縁取り)
+      c.fillStyle='rgba(255,255,255,.14)';
+      c.beginPath(); c.ellipse(x,eyY,eR+2.5,eR+2.5,0,0,7); c.fill();
+      // 眼球
+      c.fillStyle='#fdf8f0';
+      c.beginPath(); c.ellipse(x,eyY,eR,eR,0,0,7); c.fill();
+      // 虹彩
+      const ig=c.createRadialGradient(x-4,eyY-5,2,x,eyY+2,eR);
+      ig.addColorStop(0, P.evil? '#ffe070' : '#9a6a3c');
+      ig.addColorStop(.5, P.eye);
+      ig.addColorStop(1, '#1a0f06');
+      c.fillStyle=ig;
+      c.beginPath(); c.ellipse(x,eyY+1,eR-2.5,eR-2.5,0,0,7); c.fill();
+      // 瞳
+      c.fillStyle= P.evil? '#1a0d00' : '#1c0f06';
+      if(P.evil){ c.beginPath(); c.ellipse(x,eyY+1,4,10,0,0,7); c.fill(); }
+      else { c.beginPath(); c.arc(x,eyY+1,eR*0.42,0,7); c.fill(); }
+      // くっきりハイライト+小反射
+      c.fillStyle='#ffffff';
+      c.beginPath(); c.ellipse(x-5,eyY-6,5,4.2,-.4,0,7); c.fill();
+      c.fillStyle='rgba(255,255,255,.7)';
+      c.beginPath(); c.arc(x+6,eyY+7,2.6,0,7); c.fill();
+      // 上まぶたのライン(目の縁取り)
+      c.strokeStyle=line; c.lineWidth=2.4; c.lineCap='round';
+      c.beginPath(); c.ellipse(x,eyY,eR,eR,0,0,7); c.stroke();
     }
   }
 
-  // 合体エフェクト
-  pops=pops.filter(p=>p.t<1);
-  for(const p of pops){
-    p.t+=.06;
-    ctx.strokeStyle=`rgba(201,123,74,${1-p.t})`;
-    ctx.lineWidth=3;
-    ctx.beginPath(); ctx.arc(p.x,p.y,p.r*(1+p.t*.6),0,Math.PI*2); ctx.stroke();
+  // ===== 鼻(黒・丸み) =====
+  c.fillStyle=line;
+  c.beginPath();
+  c.moveTo(0,9);
+  c.bezierCurveTo(13,9, 17,18, 14,24);
+  c.bezierCurveTo(11,30, 4,31, 0,31);
+  c.bezierCurveTo(-4,31, -11,30, -14,24);
+  c.bezierCurveTo(-17,18, -13,9, 0,9);
+  c.closePath(); c.fill();
+  const ng=c.createRadialGradient(-3,15,1,0,20,16);
+  ng.addColorStop(0,'#454040'); ng.addColorStop(.55,'#1c1717'); ng.addColorStop(1,'#080606');
+  c.fillStyle=ng;
+  c.beginPath(); c.ellipse(0,20,13,11,0,0,7); c.fill();
+  c.fillStyle='#000';
+  c.beginPath(); c.ellipse(-5.5,21,2.4,4,.3,0,7); c.fill();
+  c.beginPath(); c.ellipse(5.5,21,2.4,4,-.3,0,7); c.fill();
+  c.fillStyle='rgba(255,255,255,.32)';
+  c.beginPath(); c.ellipse(-3,14.5,5,2.4,0,0,7); c.fill();
+
+  // ===== 口(やさしい表情) =====
+  c.strokeStyle=line; c.lineWidth=3; c.lineCap='round';
+  c.beginPath(); c.moveTo(0,31); c.lineTo(0,42); c.stroke();
+  c.beginPath(); c.moveTo(0,42); c.quadraticCurveTo(-13,50,-26,44); c.stroke();
+  c.beginPath(); c.moveTo(0,42); c.quadraticCurveTo(13,50,26,44); c.stroke();
+  // 下唇のたるみ
+  c.fillStyle='rgba(0,0,0,.16)';
+  c.beginPath(); c.ellipse(0,52,16,7,0,0,7); c.fill();
+  if(P.tongue){
+    c.fillStyle='#e58a96';
+    c.beginPath(); c.moveTo(-8,48);
+    c.quadraticCurveTo(0,46,8,48);
+    c.quadraticCurveTo(10,64,0,67);
+    c.quadraticCurveTo(-10,64,-8,48); c.fill();
+    c.strokeStyle='rgba(170,80,90,.6)'; c.lineWidth=1.8;
+    c.beginPath(); c.moveTo(0,50); c.lineTo(0,62); c.stroke();
+  }
+  // ほっぺのチーク
+  c.fillStyle = P.evil? 'rgba(255,120,90,.25)' : 'rgba(232,150,140,.26)';
+  c.beginPath(); c.ellipse(-54,32,13,9,-.1,0,7); c.fill();
+  c.beginPath(); c.ellipse(54,32,13,9,.1,0,7); c.fill();
+  // 下あごの白毛(老犬)
+  if(P.oldface){
+    c.fillStyle='rgba(255,255,255,.7)';
+    c.beginPath(); c.ellipse(0,60,24,15,0,0,7); c.fill();
+  }
+  // 黒パグの艶
+  if(P.sheen){
+    c.fillStyle='rgba(255,255,255,.10)';
+    c.beginPath(); c.ellipse(-30,-44,22,12,.5,0,7); c.fill();
+  }
+
+  // ===== 装飾 =====
+  if(P.crown){
+    c.save(); c.translate(0,-96);
+    c.fillStyle='#f0c33c'; c.strokeStyle='#9a7414'; c.lineWidth=3;
+    c.beginPath();
+    c.moveTo(-34,4); c.lineTo(-38,-26); c.lineTo(-20,-10);
+    c.lineTo(0,-34); c.lineTo(20,-10); c.lineTo(38,-26); c.lineTo(34,4);
+    c.closePath(); c.fill(); c.stroke();
+    c.fillStyle='#c4564a';
+    c.beginPath(); c.arc(0,-4,5,0,7); c.fill();
+    c.fillStyle='#3e6fae';
+    c.beginPath(); c.arc(-20,-2,3.6,0,7); c.fill();
+    c.beginPath(); c.arc(20,-2,3.6,0,7); c.fill();
+    c.restore();
+  }
+  if(P.horns){
+    c.fillStyle='#3a1212'; c.strokeStyle='#1c0808'; c.lineWidth=2.5;
+    for(const s of [-1,1]){
+      c.beginPath();
+      c.moveTo(s*30,-86);
+      c.quadraticCurveTo(s*52,-104, s*44,-128);
+      c.quadraticCurveTo(s*40,-110, s*22,-94);
+      c.closePath(); c.fill(); c.stroke();
+    }
+  }
+  if(P.halo){
+    c.save(); c.translate(0,-114);
+    c.strokeStyle='rgba(255,222,90,.95)'; c.lineWidth=7;
+    c.shadowColor='rgba(255,220,90,.8)'; c.shadowBlur=12;
+    c.beginPath(); c.ellipse(0,0,34,11,0,0,7); c.stroke();
+    c.restore();
+  }
+}
+</script>
+<script>
+"use strict";
+/* ============================================================
+   翼・後光(本体の背面に描く要素) / ゆうた / スプライト生成
+   ============================================================ */
+function drawBehind(c, P){
+  if(P.rays){ // 黄金パグ神の後光
+    c.save();
+    c.strokeStyle='rgba(255,210,80,.55)'; c.lineWidth=10; c.lineCap='round';
+    for(let i=0;i<12;i++){
+      const a=i/12*Math.PI*2;
+      c.beginPath();
+      c.moveTo(Math.cos(a)*105, Math.sin(a)*105);
+      c.lineTo(Math.cos(a)*138, Math.sin(a)*138);
+      c.stroke();
+    }
+    c.fillStyle='rgba(255,225,130,.18)';
+    c.beginPath(); c.arc(0,0,128,0,7); c.fill();
+    c.restore();
+  }
+  if(P.wings){
+    c.fillStyle='#fdfaf2'; c.strokeStyle='rgba(120,100,70,.5)'; c.lineWidth=3;
+    for(const s of [-1,1]){
+      c.save(); c.scale(s,1);
+      c.beginPath();
+      c.moveTo(70,-20);
+      c.bezierCurveTo(130,-70, 150,-20, 120,10);
+      c.bezierCurveTo(140,8, 142,30, 116,38);
+      c.bezierCurveTo(128,44, 120,60, 98,56);
+      c.bezierCurveTo(86,54, 76,40, 70,20);
+      c.closePath(); c.fill(); c.stroke();
+      c.strokeStyle='rgba(140,120,90,.35)'; c.lineWidth=2.5;
+      c.beginPath(); c.moveTo(80,-10); c.quadraticCurveTo(116,-26,126,-4); c.stroke();
+      c.beginPath(); c.moveTo(82,8); c.quadraticCurveTo(110,4,118,22); c.stroke();
+      c.restore();
+    }
+  }
+}
+
+/* ゆうた:黒髪+黒縁メガネの少年 */
+function drawYuta(c){
+  // 顔(少し角ばった輪郭)
+  c.beginPath();
+  c.moveTo(0,-92);
+  c.bezierCurveTo(50,-92, 78,-60, 80,-14);
+  c.bezierCurveTo(81,30, 64,70, 28,86);
+  c.bezierCurveTo(12,93, -12,93, -28,86);
+  c.bezierCurveTo(-64,70, -81,30, -80,-14);
+  c.bezierCurveTo(-78,-60, -50,-92, 0,-92);
+  c.closePath();
+  const g=c.createRadialGradient(-18,-20,10,0,0,100);
+  g.addColorStop(0,'#f3d3b3'); g.addColorStop(1,'#d9ab84');
+  c.fillStyle=g; c.fill();
+  c.strokeStyle='rgba(60,35,20,.45)'; c.lineWidth=3; c.stroke();
+  // 耳
+  c.fillStyle='#e9c29d';
+  c.beginPath(); c.ellipse(-80,2,9,16,0,0,7); c.fill();
+  c.beginPath(); c.ellipse(80,2,9,16,0,0,7); c.fill();
+  // 黒髪(マッシュ気味の前髪、ギザギザ)
+  c.fillStyle='#17151a';
+  c.beginPath();
+  c.moveTo(-82,-6);
+  c.bezierCurveTo(-90,-62, -52,-100, 0,-100);
+  c.bezierCurveTo(52,-100, 90,-62, 82,-6);
+  c.lineTo(74,-12);
+  // 前髪ギザギザ
+  let xs=[60,42,24,6,-12,-30,-48,-66];
+  let yA=-34, yB=-16;
+  c.lineTo(70,yA);
+  for(let i=0;i<xs.length;i++){
+    c.lineTo(xs[i], i%2? yA-6 : yB);
+  }
+  c.lineTo(-74,-12);
+  c.closePath(); c.fill();
+  c.fillStyle='rgba(255,255,255,.08)';
+  c.beginPath(); c.ellipse(-26,-72,30,14,.4,0,7); c.fill();
+  // 黒縁メガネ
+  c.strokeStyle='#101010'; c.lineWidth=7; c.fillStyle='rgba(210,235,255,.25)';
+  c.beginPath(); c.rect(-58,-18,46,34); c.fill(); c.stroke();
+  c.beginPath(); c.rect(12,-18,46,34); c.fill(); c.stroke();
+  c.lineWidth=6;
+  c.beginPath(); c.moveTo(-12,-4); c.lineTo(12,-4); c.stroke();
+  c.beginPath(); c.moveTo(-58,-6); c.lineTo(-78,-12); c.stroke();
+  c.beginPath(); c.moveTo(58,-6); c.lineTo(78,-12); c.stroke();
+  // 目
+  c.fillStyle='#241a14';
+  c.beginPath(); c.ellipse(-34,0,6,8,0,0,7); c.fill();
+  c.beginPath(); c.ellipse(34,0,6,8,0,0,7); c.fill();
+  c.fillStyle='#fff';
+  c.beginPath(); c.arc(-36,-3,2,0,7); c.fill();
+  c.beginPath(); c.arc(32,-3,2,0,7); c.fill();
+  // 眉
+  c.strokeStyle='#1c1a1e'; c.lineWidth=4; c.lineCap='round';
+  c.beginPath(); c.moveTo(-46,-26); c.quadraticCurveTo(-34,-31,-22,-27); c.stroke();
+  c.beginPath(); c.moveTo(22,-27); c.quadraticCurveTo(34,-31,46,-26); c.stroke();
+  // 鼻・口
+  c.strokeStyle='rgba(120,70,45,.6)'; c.lineWidth=3;
+  c.beginPath(); c.moveTo(0,18); c.quadraticCurveTo(4,26,0,30); c.stroke();
+  c.strokeStyle='#8a4a3a'; c.lineWidth=4;
+  c.beginPath(); c.moveTo(-16,48); c.quadraticCurveTo(0,58,16,48); c.stroke();
+  // ほっぺ
+  c.fillStyle='rgba(230,130,110,.25)';
+  c.beginPath(); c.ellipse(-52,30,12,8,0,0,7); c.fill();
+  c.beginPath(); c.ellipse(52,30,12,8,0,0,7); c.fill();
+}
+
+/* ============================================================
+   スプライトのプリレンダリング
+   ============================================================ */
+const SPRITES = {};
+function buildSprite(key, radius){
+  const pad = 1.6;                       // 翼・後光・冠のはみ出し分
+  const size = Math.ceil(radius*2*pad*DPR);
+  const cv = document.createElement('canvas');
+  cv.width=cv.height=size;
+  const c = cv.getContext('2d');
+  c.translate(size/2,size/2);
+  c.scale(radius*DPR/100, radius*DPR/100);
+  if(key==='yuta'){ drawYuta(c); }
+  else{
+    const P=PALETTE[key];
+    drawBehind(c,P);
+    drawPug(c,P);
+  }
+  SPRITES[key]={cv, pad};
+}
+SPECIES.forEach(s=>buildSprite(s.key, s.r));
+buildSprite('yuta', YUTA.r);
+
+function drawSprite(c, key, x, y, r, angle, popScale){
+  const s=SPRITES[key];
+  const d=r*2*s.pad*(popScale||1);
+  c.save(); c.translate(x,y); c.rotate(angle);
+  c.drawImage(s.cv, -d/2, -d/2, d, d);
+  c.restore();
+}
+
+/* NEXT プレビュー */
+const nctx=document.getElementById('nextcanvas').getContext('2d');
+function drawNextPreview(){
+  nctx.clearRect(0,0,52,52);
+  const key=nextIsYuta?'yuta':SPECIES[nextTier].key;
+  const s=SPRITES[key];
+  nctx.drawImage(s.cv,2,2,48,48);
+}
+drawNextPreview();
+
+/* 進化チャート */
+(function(){
+  const evo=document.getElementById('evo');
+  SPECIES.forEach((s,i)=>{
+    const cv=document.createElement('canvas');
+    const px=Math.round(20+i*2.4);
+    cv.width=cv.height=px*2; cv.style.width=cv.style.height=px+'px';
+    const c=cv.getContext('2d');
+    c.drawImage(SPRITES[s.key].cv,0,0,px*2,px*2);
+    cv.title=s.name;
+    evo.appendChild(cv);
+    if(i<SPECIES.length-1){
+      const a=document.createElement('span');
+      a.className='arrow'; a.textContent='▸';
+      evo.appendChild(a);
+    }
+  });
+})();
+
+/* ============================================================
+   メインループ
+   ============================================================ */
+let lastT=performance.now();
+function loop(now){
+  const dt=Math.min(.05,(now-lastT)/1000); lastT=now;
+  Engine.update(engine, 1000/60);
+  processMerges();
+  if(!gameOver) checkGameOver(dt);
+
+  ctx.setTransform(viewScale*DPR,0,0,viewScale*DPR,0,0);
+  // 背景
+  const bg=ctx.createLinearGradient(0,0,0,H);
+  bg.addColorStop(0,'#efe2c8'); bg.addColorStop(1,'#d9c39a');
+  ctx.fillStyle=bg; ctx.fillRect(0,0,W,H);
+  // 壁の内側陰影
+  ctx.fillStyle='rgba(120,90,55,.12)';
+  ctx.fillRect(0,0,8,H); ctx.fillRect(W-8,0,8,H); ctx.fillRect(0,H-8,W,8);
+  // デッドライン
+  ctx.strokeStyle = dangerTimer>0 ? 'rgba(196,70,58,.85)' : 'rgba(140,110,70,.5)';
+  ctx.lineWidth=2.5; ctx.setLineDash([10,8]);
+  ctx.beginPath(); ctx.moveTo(0,TOPLINE); ctx.lineTo(W,TOPLINE); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // 落下予告(ガイド+持ちキャラ)
+  if(!gameOver && canDrop){
+    const sp=currentIsYuta?YUTA:SPECIES[currentTier];
+    const gx=clampX(dropX, sp.r);
+    ctx.strokeStyle='rgba(120,90,55,.30)'; ctx.lineWidth=2; ctx.setLineDash([4,7]);
+    ctx.beginPath(); ctx.moveTo(gx,60+sp.r); ctx.lineTo(gx,H-10); ctx.stroke();
+    ctx.setLineDash([]);
+    drawSprite(ctx, currentIsYuta?'yuta':sp.key, gx, 60, sp.r, 0, 1);
+  }
+
+  // ボディ描画
+  for(const b of Composite.allBodies(world)){
+    if(b.label!=='pug') continue;
+    const p=b.plugin;
+    if(p.pop>0){ p.pop=Math.max(0,p.pop-dt*4); }
+    const pop=1+Math.sin((1-p.pop)*Math.PI)*.18*(p.pop>0?1:0);
+    const key=p.isYuta?'yuta':SPECIES[p.tier].key;
+    const r=p.isYuta?YUTA.r:SPECIES[p.tier].r;
+    drawSprite(ctx, key, b.position.x, b.position.y, r, b.angle, pop);
+  }
+
+  // パーティクル
+  for(let i=particles.length-1;i>=0;i--){
+    const pt=particles[i];
+    pt.x+=pt.vx; pt.y+=pt.vy; pt.vy+=.15; pt.life-=dt*1.6;
+    if(pt.life<=0){ particles.splice(i,1); continue; }
+    ctx.globalAlpha=pt.life;
+    ctx.fillStyle=pt.color;
+    ctx.beginPath(); ctx.arc(pt.x,pt.y,pt.r*pt.life,0,7); ctx.fill();
+    ctx.globalAlpha=1;
+  }
+
+  // トースト
+  if(toastT>0){
+    toastT=Math.max(0,toastT-dt*.7);
+    $toast.style.opacity=Math.min(1,toastT*3);
+    $toast.style.transform=`translate(-50%,${-50-(1-toastT)*30}%)`;
   }
 
   requestAnimationFrame(loop);
 }
-
-initGame();
-loop();
+requestAnimationFrame(loop);
 </script>
 </body>
 </html>
