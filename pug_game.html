@@ -144,9 +144,9 @@ function spriteOf(level){ return level===YUTA?"yuta":level===CHICHI?"chichi":lev
 function maxUnlocked(){ return Math.min(5,3+Math.floor(score/300)); }
 function pickLevel(){
   const r=Math.random();
-  if(r<0.02) return YUTA;                         // たまにゆうた（レア）
-  if(r<0.04) return CHICHI;                       // たまにお父さん（レア）
-  if(r<0.045) return HARUTO;                      // ごくまれにはると（0.5%）
+  if(r<0.04) return YUTA;                         // たまにゆうた（4%）
+  if(r<0.08) return CHICHI;                        // たまにお父さん（4%）
+  if(r<0.09) return HARUTO;                        // ごくまれにはると（1%）
   return Math.floor(Math.random()*maxUnlocked());
 }
 
@@ -269,6 +269,7 @@ function maybeAutoDrop(){
   const b=spawnPug(HARUTO,x,DROP_Y);
   b.vx=(Math.random()<0.5?-1:1)*(2.0+Math.random()*1.2);  // 左右ドリフト速度
   b.touches=0;
+  b.wanderUntil=performance.now()+3000;  // 3秒間うろうろしてから落ちる
   setTimeout(advanceNext,550);
 }
 
@@ -371,8 +372,16 @@ function loop(){
       // 自動で左右に動く（壁で反転）
       if(b.position.x<=WALL+HARUTO_R+2) b.vx=Math.abs(b.vx);
       else if(b.position.x>=W-WALL-HARUTO_R-2) b.vx=-Math.abs(b.vx);
-      Body.setVelocity(b,{x:b.vx,y:b.velocity.y});
-      // 落下中は「んー！」を表示
+      const wandering=(b.wanderUntil && now<b.wanderUntil);
+      if(wandering){
+        // 3秒間は上部でうろうろ（落下しない：y座標を固定）
+        Body.setPosition(b,{x:b.position.x,y:DROP_Y});
+        Body.setVelocity(b,{x:b.vx,y:0});
+      }else{
+        // 3秒経過後は落下
+        Body.setVelocity(b,{x:b.vx,y:b.velocity.y});
+      }
+      // 「んー！」を表示
       ctx.save();
       ctx.font='bold 18px system-ui,sans-serif'; ctx.textAlign="center"; ctx.textBaseline="middle";
       ctx.lineWidth=4; ctx.strokeStyle="rgba(255,255,255,.9)";
