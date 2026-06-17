@@ -175,7 +175,7 @@ function initGame(){
         const nb=spawnPug(nl,px,py);
         nb.touchedBy=h.hid;
         Body.setVelocity(nb,vel);
-        floatText(px,py,"んー！","#e040a0",22);
+        floatText(px,py,"はると「んー！」","#e040a0",22);
         pop(px,py,PUGS[nl].r);
         h.touches=(h.touches||0)+1;
         if(h.touches>=3) World.remove(engine.world,h);   // 3回触れたら消滅
@@ -194,7 +194,7 @@ function initGame(){
         const nl=Math.max(0,(base<0?maxUnlocked()-1:base)-2);
         spawnPug(nl,nx,ny);
         score+=PUGS[nl].score;
-        floatText(nx,ny,"まだ早い！","#3b6bff",24);
+        floatText(nx,ny,"お父さん「まだ早い！」","#3b6bff",24);
         pop(nx,ny,CHICHI_R);
         updateHUD();
         continue;
@@ -210,7 +210,7 @@ function initGame(){
         const base=a.isYuta?(b.isYuta?-1:b.pugLevel):a.pugLevel;
         const bonus=50+Math.max(base,0)*20;   // ボーナス特典
         score+=bonus;
-        floatText(nx,ny,"パグ大好きー❤️","#ff3b6b",24);
+        floatText(nx,ny,"ゆうた「パグ大好きー❤️」","#ff3b6b",24);
         floatText(nx,ny+26,"BONUS +"+bonus,"#ff8a3b",18);
         pop(nx,ny,YUTA_R);
         updateHUD();
@@ -385,9 +385,9 @@ function loop(){
       ctx.save();
       ctx.font='bold 18px system-ui,sans-serif'; ctx.textAlign="center"; ctx.textBaseline="middle";
       ctx.lineWidth=4; ctx.strokeStyle="rgba(255,255,255,.9)";
-      ctx.strokeText("んー！",b.position.x,b.position.y-radiusOf(HARUTO)-12);
+      ctx.strokeText("はると「んー！」",b.position.x,b.position.y-radiusOf(HARUTO)-12);
       ctx.fillStyle="#e040a0";
-      ctx.fillText("んー！",b.position.x,b.position.y-radiusOf(HARUTO)-12);
+      ctx.fillText("はると「んー！」",b.position.x,b.position.y-radiusOf(HARUTO)-12);
       ctx.restore();
       continue;   // はるとは危険判定の対象外（消滅は3回タッチで処理）
     }
