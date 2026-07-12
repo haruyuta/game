@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>重合スネーク - Polymerization Snake</title>
+<style>
+  :root{
+    --paper:#FBFCF8;
+    --grid:#C5DCE8;
+    --grid-strong:#9EC4D6;
+    --ink:#1A3A52;
+    --ink-sub:#5A7A92;
+    --chain:#1A3A52;
+    --active:#E8734A;
+    --radical:#D6453D;
+    --ethylene:#4A9E6B;
+    --propylene:#E8944A;
+    --styrene:#8A5AC2;
+    --panel:#EEF3EE;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:"Hiragino Kaku Gothic ProN","Yu Gothic","Meiryo",sans-serif;
+    display:flex;flex-direction:column;align-items:center;
+    padding:10px;
+    touch-action:manipulation;
+    background-image:
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size:24px 24px;
+  }
+  header{
+    width:100%;max-width:440px;
+    border:2px solid var(--ink);
+    background:var(--paper);
+    padding:8px 14px;
+    margin-bottom:8px;
+    display:flex;justify-content:space-between;align-items:baseline;
+  }
+  header h1{font-size:18px;letter-spacing:2px;}
+  header .en{font-size:9px;color:var(--ink-sub);letter-spacing:1px;font-family:monospace;}
+  #hud{
+    width:100%;max-width:440px;
+    display:flex;gap:6px;margin-bottom:8px;
+  }
+  .stat{
+    flex:1;background:var(--paper);border:1.5px solid var(--ink);
+    padding:4px 8px;text-align:center;
+  }
+  .stat .label{font-size:9px;color:var(--ink-sub);letter-spacing:1px;}
+  .stat .value{font-size:17px;font-family:"Courier New",monospace;font-weight:bold;}
+  .stat .unit{font-size:9px;color:var(--ink-sub);}
+  #stage{position:relative;width:100%;max-width:440px;}
+  canvas{
+    display:block;width:100%;
+    border:2px solid var(--ink);
+    background:var(--paper);
+    touch-action:none;
+  }
+  #overlay{
+    position:absolute;inset:0;
+    display:flex;align-items:center;justify-content:center;
+    background:rgba(251,252,248,0.92);
+    padding:14px;
+  }
+  #overlay.hidden{display:none;}
+  .card{
+    width:100%;max-width:360px;
+    border:2px solid var(--ink);
+    background:var(--paper);
+    padding:16px;
+  }
+  .card h2{
+    font-size:15px;letter-spacing:3px;text-align:center;
+    border-bottom:2px solid var(--ink);padding-bottom:8px;margin-bottom:10px;
+  }
+  .card table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:10px;}
+  .card td{padding:4px 2px;border-bottom:1px solid var(--grid-strong);}
+  .card td:last-child{text-align:right;font-family:"Courier New",monospace;font-weight:bold;}
+  .card .rank{
+    text-align:center;font-size:14px;font-weight:bold;
+    border:1.5px dashed var(--ink);padding:8px;margin-bottom:12px;
+    letter-spacing:1px;
+  }
+  .rules{font-size:11.5px;line-height:1.8;margin-bottom:12px;}
+  .rules .dot{display:inline-block;width:9px;height:9px;border-radius:50%;vertical-align:-1px;margin-right:3px;}
+  button{
+    width:100%;padding:11px;
+    background:var(--ink);color:var(--paper);
+    border:none;font-size:14px;letter-spacing:3px;
+    font-family:inherit;cursor:pointer;
+  }
+  button:active{background:var(--active);}
+  #pad{
+    width:100%;max-width:440px;
+    display:grid;grid-template-columns:repeat(3,1fr);gap:5px;
+    margin-top:8px;
+  }
+  #pad button{
+    padding:13px 0;font-size:17px;letter-spacing:0;
+    background:var(--paper);color:var(--ink);border:1.5px solid var(--ink);
+  }
+  #pad button:active{background:var(--ink);color:var(--paper);}
+  #pad .blank{border:none;background:transparent;pointer-events:none;}
+  footer{font-size:9px;color:var(--ink-sub);margin-top:10px;letter-spacing:1px;}
+  .flash{animation:flash .25s;}
+  @keyframes flash{0%{background:#F8D0CC;}100%{background:var(--paper);}}
+  @media (prefers-reduced-motion: reduce){.flash{animation:none;}}
+</style>
+</head>
+<body>
+<header>
+  <h1>重合スネーク</h1>
+  <span class="en">POLYMERIZATION SNAKE / Rev.1.0</span>
+</header>
+
+<div id="hud">
+  <div class="stat"><div class="label">分子量 M</div><div class="value" id="mw">0</div><div class="unit">g/mol</div></div>
+  <div class="stat"><div class="label">重合度 n</div><div class="value" id="dp">1</div><div class="unit">units</div></div>
+  <div class="stat"><div class="label">切断回数</div><div class="value" id="cut">0</div><div class="unit">回</div></div>
+</div>
+
+<div id="stage">
+  <canvas id="cv" width="440" height="440"></canvas>
+  <div id="overlay">
+    <div class="card" id="card">
+      <h2>取 扱 説 明 書</h2>
+      <div class="rules">
+        活性末端(<span class="dot" style="background:var(--active)"></span>橙)を操作して鎖を成長させよ。<br>
+        <span class="dot" style="background:var(--ethylene)"></span>エチレン +28 g/mol<br>
+        <span class="dot" style="background:var(--propylene)"></span>プロピレン +42 g/mol<br>
+        <span class="dot" style="background:var(--styrene)"></span>スチレン +104 g/mol(+2ユニット成長)<br>
+        <span class="dot" style="background:var(--radical)"></span>ラジカルに触れると<b>鎖切断</b>(分子量半減)。<br>
+        壁・自分自身への衝突は<b>停止反応</b>(ゲーム終了)。<br>
+        操作:スワイプ / 矢印キー / 下のボタン
+      </div>
+      <button id="btn">重 合 開 始</button>
+    </div>
+  </div>
+</div>
+
+<div id="pad">
+  <button class="blank"></button><button data-d="up">▲</button><button class="blank"></button>
+  <button data-d="left">◀</button><button data-d="down">▼</button><button data-d="right">▶</button>
+</div>
+
+<footer>ラジカル重合シミュレータ(娯楽用・JIS非準拠)</footer>
+
+<script>
+"use strict";
+window.onerror = function(msg, src, line, col){
+  var d = document.createElement("div");
+  d.style.cssText = "position:fixed;bottom:0;left:0;right:0;background:#D6453D;color:#fff;font-size:11px;padding:6px;z-index:999;font-family:monospace;white-space:pre-wrap;";
+  d.textContent = "ScriptError: " + msg + " (line " + line + ":" + col + ")";
+  document.body.appendChild(d);
+  return false;
+};
+const N = 20;                 // グリッド数
+const cv = document.getElementById("cv");
+const ctx = cv.getContext("2d");
+const CELL = cv.width / N;
+
+const MONOMERS = [
+  {name:"エチレン",   color:"#4A9E6B", mw:28,  grow:1, weight:5},
+  {name:"プロピレン", color:"#E8944A", mw:42,  grow:1, weight:4},
+  {name:"スチレン",   color:"#8A5AC2", mw:104, grow:2, weight:1},
+];
+
+let snake, dir, dirQueue, monomers, radicals, mw, cuts, alive, timer, tick, startTime;
+
+function reset(){
+  snake = [{x:5,y:10},{x:4,y:10},{x:3,y:10}];
+  dir = {x:1,y:0};
+  dirQueue = [];
+  monomers = [];
+  radicals = [];
+  mw = 3 * 42;   // 初期3ユニット(PP換算)
+  cuts = 0;
+  alive = true;
+  tick = 0;
+  startTime = Date.now();
+  for(let i=0;i<3;i++) spawnMonomer();
+  spawnRadical(); spawnRadical();
+  updateHUD();
+}
+
+function freeCell(){
+  for(let t=0;t<500;t++){
+    const p = {x:Math.floor(Math.random()*N), y:Math.floor(Math.random()*N)};
+    if(snake.some(s=>s.x===p.x&&s.y===p.y)) continue;
+    if(monomers.some(m=>m.x===p.x&&m.y===p.y)) continue;
+    if(radicals.some(r=>r.x===p.x&&r.y===p.y)) continue;
+    return p;
+  }
+  return null;
+}
+
+function spawnMonomer(){
+  const p = freeCell(); if(!p) return;
+  const total = MONOMERS.reduce((a,m)=>a+m.weight,0);
+  let r = Math.random()*total, type = MONOMERS[0];
+  for(const m of MONOMERS){ r -= m.weight; if(r<=0){ type=m; break; } }
+  monomers.push({x:p.x, y:p.y, type});
+}
+
+function spawnRadical(){
+  const p = freeCell(); if(!p) return;
+  radicals.push({x:p.x, y:p.y});
+}
+
+function moveRadicals(){
+  for(const r of radicals){
+    if(Math.random()<0.6) continue; // ゆっくり拡散
+    const d = [{x:1,y:0},{x:-1,y:0},{x:0,y:1},{x:0,y:-1}][Math.floor(Math.random()*4)];
+    const nx = r.x+d.x, ny = r.y+d.y;
+    if(nx<0||nx>=N||ny<0||ny>=N) continue;
+    if(snake.some(s=>s.x===nx&&s.y===ny)) continue;
+    r.x = nx; r.y = ny;
+  }
+}
+
+function setDir(name){
+  const map = {up:{x:0,y:-1},down:{x:0,y:1},left:{x:-1,y:0},right:{x:1,y:0}};
+  const d = map[name]; if(!d) return;
+  const last = dirQueue.length ? dirQueue[dirQueue.length-1] : dir;
+  if(d.x === -last.x && d.y === -last.y) return; // 反転禁止
+  if(dirQueue.length < 2) dirQueue.push(d);
+}
+
+function step(){
+  if(!alive) return;
+  tick++;
+  if(dirQueue.length) dir = dirQueue.shift();
+
+  const head = {x:snake[0].x+dir.x, y:snake[0].y+dir.y};
+
+  // 停止反応:壁 or 自己衝突
+  if(head.x<0||head.x>=N||head.y<0||head.y>=N ||
+     snake.some((s,i)=> i<snake.length-1 && s.x===head.x && s.y===head.y)){
+    gameOver("停止反応(衝突)");
+    return;
+  }
+
+  // ラジカル → 鎖切断
+  const ri = radicals.findIndex(r=>r.x===head.x&&r.y===head.y);
+  if(ri>=0){
+    radicals.splice(ri,1);
+    cuts++;
+    const keep = Math.max(2, Math.ceil(snake.length/2));
+    snake = snake.slice(0, keep);
+    mw = Math.max(84, Math.round(mw/2));
+    document.body.classList.remove("flash");
+    void document.body.offsetWidth;
+    document.body.classList.add("flash");
+    setTimeout(spawnRadical, 3000);
+  }
+
+  snake.unshift(head);
+
+  // モノマー捕捉
+  const mi = monomers.findIndex(m=>m.x===head.x&&m.y===head.y);
+  if(mi>=0){
+    const m = monomers.splice(mi,1)[0];
+    mw += m.type.mw;
+    for(let i=1;i<m.type.grow;i++){
+      const last = snake[snake.length-1];
+      snake.push({x:last.x, y:last.y});
+    }
+    spawnMonomer();
+    if(snake.length % 8 === 0) spawnRadical(); // 難度上昇
+    restartTimer();
+  } else {
+    snake.pop();
+  }
+
+  if(tick % 2 === 0) moveRadicals();
+  updateHUD();
+  draw();
+}
+
+function speed(){
+  return Math.max(90, 210 - snake.length*4); // 鎖長↑で反応速度↑
+}
+function restartTimer(){
+  clearInterval(timer);
+  timer = setInterval(step, speed());
+}
+
+function updateHUD(){
+  document.getElementById("mw").textContent = mw.toLocaleString();
+  document.getElementById("dp").textContent = snake.length;
+  document.getElementById("cut").textContent = cuts;
+}
+
+function rank(m){
+  if(m < 1000)   return "オリゴマー級(要再重合)";
+  if(m < 3000)   return "低分子量グレード";
+  if(m < 8000)   return "汎用グレード 合格";
+  if(m < 15000)  return "エンプラ級 優良";
+  return "超高分子量(UHMW)級 ★特級★";
+}
+
+function gameOver(reason){
+  alive = false;
+  clearInterval(timer);
+  const sec = Math.round((Date.now()-startTime)/10)/100;
+  const pdi = (1 + cuts*0.35 + Math.random()*0.1).toFixed(2);
+  const card = document.getElementById("card");
+  card.innerHTML = `
+    <h2>試 験 成 績 書</h2>
+    <table>
+      <tr><td>終了要因</td><td>${reason}</td></tr>
+      <tr><td>数平均分子量 Mn</td><td>${mw.toLocaleString()} g/mol</td></tr>
+      <tr><td>重合度 n</td><td>${snake.length}</td></tr>
+      <tr><td>鎖切断回数</td><td>${cuts} 回</td></tr>
+      <tr><td>多分散度 PDI(参考値)</td><td>${pdi}</td></tr>
+      <tr><td>反応時間</td><td>${sec} s</td></tr>
+    </table>
+    <div class="rank">判定:${rank(mw)}</div>
+    <button id="btn">再 重 合</button>`;
+  document.getElementById("overlay").classList.remove("hidden");
+  document.getElementById("btn").onclick = start;
+  draw();
+}
+
+function draw(){
+  ctx.clearRect(0,0,cv.width,cv.height);
+  // 方眼
+  ctx.strokeStyle = "#DCE9F0"; ctx.lineWidth = 1;
+  for(let i=1;i<N;i++){
+    ctx.beginPath(); ctx.moveTo(i*CELL,0); ctx.lineTo(i*CELL,cv.height); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0,i*CELL); ctx.lineTo(cv.width,i*CELL); ctx.stroke();
+  }
+  // 鎖の結合線
+  ctx.strokeStyle = "#1A3A52"; ctx.lineWidth = 3; ctx.lineCap="round";
+  ctx.beginPath();
+  snake.forEach((s,i)=>{
+    const cx = s.x*CELL+CELL/2, cy = s.y*CELL+CELL/2;
+    if(i===0) ctx.moveTo(cx,cy); else ctx.lineTo(cx,cy);
+  });
+  ctx.stroke();
+  // ユニット(頭=活性末端)
+  snake.forEach((s,i)=>{
+    ctx.fillStyle = i===0 ? "#E8734A" : "#1A3A52";
+    ctx.beginPath();
+    ctx.arc(s.x*CELL+CELL/2, s.y*CELL+CELL/2, i===0?CELL*0.38:CELL*0.28, 0, Math.PI*2);
+    ctx.fill();
+  });
+  // モノマー
+  for(const m of monomers){
+    ctx.fillStyle = m.type.color;
+    ctx.beginPath();
+    ctx.arc(m.x*CELL+CELL/2, m.y*CELL+CELL/2, CELL*0.3, 0, Math.PI*2);
+    ctx.fill();
+  }
+  // ラジカル(・)
+  for(const r of radicals){
+    ctx.fillStyle = "#D6453D";
+    ctx.beginPath();
+    ctx.arc(r.x*CELL+CELL/2, r.y*CELL+CELL/2, CELL*0.22, 0, Math.PI*2);
+    ctx.fill();
+    ctx.fillStyle = "#FBFCF8";
+    ctx.font = `bold ${CELL*0.5}px monospace`;
+    ctx.textAlign="center"; ctx.textBaseline="middle";
+    ctx.fillText("・", r.x*CELL+CELL/2, r.y*CELL+CELL/2 - CELL*0.05);
+  }
+}
+
+function start(){
+  document.getElementById("overlay").classList.add("hidden");
+  reset();
+  draw();
+  restartTimer();
+}
+
+// 操作:キーボード
+document.addEventListener("keydown", e=>{
+  const map = {ArrowUp:"up",ArrowDown:"down",ArrowLeft:"left",ArrowRight:"right"};
+  if(map[e.key]){ e.preventDefault(); setDir(map[e.key]); }
+});
+// 操作:スワイプ
+let tx=null, ty=null;
+cv.addEventListener("touchstart", e=>{
+  tx = e.touches[0].clientX; ty = e.touches[0].clientY;
+}, {passive:true});
+cv.addEventListener("touchmove", e=>{ e.preventDefault(); }, {passive:false});
+cv.addEventListener("touchend", e=>{
+  if(tx===null) return;
+  const dx = e.changedTouches[0].clientX - tx;
+  const dy = e.changedTouches[0].clientY - ty;
+  if(Math.abs(dx) < 15 && Math.abs(dy) < 15) return;
+  setDir(Math.abs(dx) > Math.abs(dy) ? (dx>0?"right":"left") : (dy>0?"down":"up"));
+  tx = ty = null;
+});
+// 操作:ボタン
+document.querySelectorAll("#pad button[data-d]").forEach(b=>{
+  b.addEventListener("click", ()=>setDir(b.dataset.d));
+});
+
+document.getElementById("btn").onclick = start;
+reset();   // 初期描画前に状態を初期化(未初期化のsnake参照によるエラー防止)
+draw();
+</script>
+</body>
+</html>
