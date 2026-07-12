@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VOICEVOX 読み上げツール</title>
+<style>
+:root {
+  --bg: #f4f6f9;
+  --panel: #ffffff;
+  --ink: #1b2733;
+  --sub: #5a6b7b;
+  --line: #d8e0e8;
+  --accent: #0e7c7b;
+  --accent-soft: #e0f0ef;
+  --danger: #b3452f;
+  --ok: #2e7d32;
+  --radius: 10px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Yu Gothic", "Meiryo", sans-serif;
+  background: var(--bg); color: var(--ink); line-height: 1.6; padding: 16px;
+}
+.container { max-width: 860px; margin: 0 auto; }
+
+header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+header h1 { font-size: 1.15rem; font-weight: 700; }
+header .sub { font-size: 0.78rem; color: var(--sub); }
+
+.speak-bars { display: inline-flex; gap: 2px; align-items: flex-end; height: 18px; width: 26px; }
+.speak-bars span { width: 4px; background: var(--accent); border-radius: 2px; height: 4px; }
+body.speaking .speak-bars span { animation: bar 0.8s ease-in-out infinite; }
+body.speaking .speak-bars span:nth-child(2) { animation-delay: 0.15s; }
+body.speaking .speak-bars span:nth-child(3) { animation-delay: 0.3s; }
+body.speaking .speak-bars span:nth-child(4) { animation-delay: 0.45s; }
+@keyframes bar { 0%,100% { height: 4px; } 50% { height: 16px; } }
+@media (prefers-reduced-motion: reduce) { body.speaking .speak-bars span { animation: none; height: 12px; } }
+
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; margin-bottom: 14px; }
+.panel h2 { font-size: 0.85rem; color: var(--sub); font-weight: 600; margin-bottom: 10px; letter-spacing: 0.05em; }
+
+#engineStatus { font-size: 0.82rem; padding: 8px 12px; border-radius: 8px; margin-bottom: 14px; }
+#engineStatus.ok { background: #e6f2e6; color: var(--ok); }
+#engineStatus.ng { background: #fbeee9; color: var(--danger); }
+
+#errBanner {
+  display: none; background: #fbeee9; color: var(--danger);
+  border: 1px solid #e8c4b8; border-radius: 8px; padding: 8px 12px;
+  font-size: 0.8rem; margin-bottom: 14px; white-space: pre-wrap; word-break: break-all;
+}
+
+textarea {
+  width: 100%; min-height: 150px; resize: vertical;
+  font: inherit; font-size: 0.95rem;
+  border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; background: #fff; color: var(--ink);
+}
+textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+.textmeta { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--sub); margin-top: 6px; }
+.textmeta button { background: none; border: none; color: var(--accent); cursor: pointer; font-size: 0.75rem; text-decoration: underline; padding: 0; }
+
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 640px) { .grid { grid-template-columns: 1fr; } }
+
+label.field { display: block; font-size: 0.8rem; color: var(--sub); margin-bottom: 10px; }
+label.field .val { float: right; color: var(--ink); font-variant-numeric: tabular-nums; }
+select, input[type=range] { width: 100%; margin-top: 4px; }
+select { font: inherit; font-size: 0.85rem; padding: 7px 8px; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--ink); }
+select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+input[type=range] { accent-color: var(--accent); height: 24px; }
+input[type=checkbox] { accent-color: var(--accent); }
+
+.controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+button.btn {
+  font: inherit; font-size: 0.9rem; font-weight: 600;
+  padding: 9px 20px; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--line); background: #fff; color: var(--ink);
+}
+button.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+button.btn.primary:hover:not(:disabled) { background: #0a6362; }
+button.btn:hover:not(:disabled) { border-color: var(--accent); }
+button.btn:disabled { opacity: 0.4; cursor: default; }
+button.btn.stop { color: var(--danger); }
+
+#preview {
+  font-size: 0.92rem; white-space: pre-wrap; word-break: break-word;
+  max-height: 220px; overflow-y: auto;
+  border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; background: #fcfdfe;
+}
+#preview .seg { border-radius: 3px; }
+#preview .seg.now { background: var(--accent-soft); box-shadow: 0 0 0 2px var(--accent-soft); }
+#preview .seg.done { color: var(--sub); }
+
+.status { font-size: 0.78rem; color: var(--sub); margin-top: 8px; min-height: 1.2em; }
+.notice { font-size: 0.78rem; color: var(--sub); background: var(--accent-soft); border-radius: 8px; padding: 8px 12px; margin-top: 10px; }
+details.help { margin-top: 10px; font-size: 0.8rem; color: var(--sub); }
+details.help summary { cursor: pointer; color: var(--accent); font-weight: 600; }
+details.help ol { padding-left: 1.4em; margin-top: 6px; }
+details.help code { background: #eef2f5; border-radius: 4px; padding: 1px 5px; font-family: Consolas, Menlo, monospace; font-size: 0.78rem; }
+
+.favrow { display: flex; gap: 8px; margin-bottom: 10px; }
+.favrow input {
+  flex: 1; font: inherit; font-size: 0.85rem; padding: 7px 10px;
+  border: 1px solid var(--line); border-radius: 8px; color: var(--ink);
+}
+.favrow input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+#favList { display: flex; flex-wrap: wrap; gap: 6px; }
+.fav-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--accent-soft); border: 1px solid var(--line);
+  border-radius: 16px; padding: 4px 6px 4px 12px; font-size: 0.82rem;
+}
+.fav-chip button { border: none; background: none; cursor: pointer; font: inherit; padding: 0; }
+.fav-chip .fav-apply { color: var(--ink); font-weight: 600; }
+.fav-chip .fav-apply:hover { color: var(--accent); }
+.fav-chip .fav-del {
+  color: var(--sub); width: 20px; height: 20px; border-radius: 50%; line-height: 1;
+}
+.fav-chip .fav-del:hover { background: #fbeee9; color: var(--danger); }
+.fav-empty { font-size: 0.78rem; color: var(--sub); }
+</style>
+</head>
+<body>
+<div class="container">
+
+<header>
+  <div class="speak-bars" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+  <div>
+    <h1>VOICEVOX 読み上げツール</h1>
+    <div class="sub">ローカルのVOICEVOXエンジン(localhost:50021)で音声合成・WAV保存対応</div>
+  </div>
+</header>
+
+<div id="engineStatus" class="ng">エンジン確認中...</div>
+<div id="errBanner"></div>
+
+<div class="panel">
+  <h2>テキスト入力</h2>
+  <textarea id="inputText" placeholder="ここに読み上げたいテキストを入力または貼り付け"></textarea>
+  <div class="textmeta">
+    <span id="charCount">0 文字</span>
+    <button type="button" id="clearBtn">クリア</button>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>音声設定</h2>
+  <div class="grid">
+    <div>
+      <label class="field">キャラクター(スタイル)
+        <select id="speakerSelect"><option value="">エンジン未接続</option></select>
+      </label>
+      <label class="field">声のプリセット
+        <select id="preset">
+          <option value="normal">標準</option>
+          <option value="cute">かわいい(高め・抑揚強め)</option>
+          <option value="pug">パグ風(高め・元気・抑揚大)</option>
+          <option value="custom">カスタム(スライダー手動)</option>
+        </select>
+      </label>
+      <label class="field" style="display:flex; align-items:center; gap:6px;">
+        <input type="checkbox" id="pugTail">
+        <span>語尾に「ワン」を付ける(パグ語尾変換)</span>
+      </label>
+    </div>
+    <div>
+      <label class="field">話速 <span class="val" id="speedVal">1.00</span>
+        <input type="range" id="speed" min="0.5" max="2" step="0.05" value="1">
+      </label>
+      <label class="field">音高 <span class="val" id="pitchVal">0.00</span>
+        <input type="range" id="pitchScale" min="-0.15" max="0.15" step="0.01" value="0">
+      </label>
+      <label class="field">抑揚 <span class="val" id="intoVal">1.00</span>
+        <input type="range" id="intonation" min="0" max="2" step="0.05" value="1">
+      </label>
+      <label class="field">音量 <span class="val" id="volVal">1.00</span>
+        <input type="range" id="volumeScale" min="0" max="2" step="0.05" value="1">
+      </label>
+    </div>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>お気に入り(キャラ+声の条件を保存)</h2>
+  <div class="favrow">
+    <input id="favName" placeholder="お気に入り名(例: パグたろう用)" maxlength="30">
+    <button class="btn" id="favSaveBtn">現在の設定を保存</button>
+  </div>
+  <div id="favList"></div>
+</div>
+
+<div class="panel">
+  <h2>合成・再生</h2>
+  <div class="controls">
+    <button class="btn primary" id="playBtn">▶ 合成して再生</button>
+    <button class="btn" id="pauseBtn" disabled>⏸ 一時停止</button>
+    <button class="btn stop" id="stopBtn" disabled>■ 停止</button>
+    <button class="btn" id="saveBtn" disabled>💾 WAV保存</button>
+  </div>
+  <div class="status" id="status"></div>
+  <div style="margin-top:12px;">
+    <h2>読み上げ位置</h2>
+    <div id="preview"><span style="color:var(--sub)">テキストを入力して「合成して再生」を押してください</span></div>
+  </div>
+  <div class="notice">
+    合成音声の利用時はクレジット表記が必要です(例: VOICEVOX:ずんだもん)。キャラクターごとの利用規約も確認してください。
+  </div>
+  <details class="help">
+    <summary>使い方 / エンジンに接続できないとき</summary>
+    <ol>
+      <li>VOICEVOX公式サイトからアプリをインストールし、起動しておく(起動中は自動で <code>http://localhost:50021</code> にAPIが立ちます)。</li>
+      <li>このHTMLを <code>python -m http.server</code> などlocalhost経由で開くと、CORS設定不要でそのまま動きます。</li>
+      <li>file://直開きやGitHub Pagesから使ってCORSエラーが出る場合は、VOICEVOX起動中に <code>http://localhost:50021/setting</code> を開き、Allow Originにこのページのオリジンを追加(または CORS Policy Mode を all に変更)してください。</li>
+    </ol>
+  </details>
+</div>
+
+</div>
+
+<script>
+'use strict';
+
+const ENGINE = 'http://localhost:50021';
+const $ = id => document.getElementById(id);
+
+// ---- エラーバナー ----
+function showError(msg) {
+  const b = $('errBanner');
+  b.style.display = 'block';
+  b.textContent = msg;
+}
+window.onerror = (msg, src, line) => { showError(`JSエラー: ${msg} (line ${line})`); };
+window.addEventListener('unhandledrejection', e => { showError(`エラー: ${e.reason}`); });
+
+// ---- エンジン接続確認 & スピーカー取得 ----
+async function initEngine() {
+  const st = $('engineStatus');
+  try {
+    const ver = await (await fetch(`${ENGINE}/version`)).json();
+    const speakers = await (await fetch(`${ENGINE}/speakers`)).json();
+    const sel = $('speakerSelect');
+    sel.innerHTML = '';
+    speakers.forEach(sp => {
+      const grp = document.createElement('optgroup');
+      grp.label = sp.name;
+      sp.styles.forEach(styl => {
+        const opt = document.createElement('option');
+        opt.value = styl.id;
+        opt.textContent = `${sp.name}(${styl.name})`;
+        grp.appendChild(opt);
+      });
+      sel.appendChild(grp);
+    });
+    st.className = 'ok';
+    st.textContent = `✔ VOICEVOXエンジン接続OK (version ${ver}) — ${speakers.length} キャラクター利用可能`;
+    return true;
+  } catch (e) {
+    st.className = 'ng';
+    st.textContent = '✖ VOICEVOXエンジンに接続できません。VOICEVOXアプリを起動してから、このページを再読み込みしてください(詳細は下の「使い方」参照)。';
+    return false;
+  }
+}
+initEngine();
+
+// ---- 入力補助 ----
+$('inputText').addEventListener('input', () => {
+  $('charCount').textContent = `${$('inputText').value.length} 文字`;
+});
+$('clearBtn').addEventListener('click', () => {
+  $('inputText').value = '';
+  $('charCount').textContent = '0 文字';
+});
+
+// ---- スライダー ----
+const sliderDefs = [
+  ['speed', 'speedVal'], ['pitchScale', 'pitchVal'], ['intonation', 'intoVal'], ['volumeScale', 'volVal']
+];
+sliderDefs.forEach(([id, valId]) => {
+  $(id).addEventListener('input', () => {
+    $(valId).textContent = Number($(id).value).toFixed(2);
+    $('preset').value = 'custom';
+  });
+});
+
+// ---- プリセット ----
+// VOICEVOXのaudio_queryパラメータに直接対応(speedScale / pitchScale / intonationScale)
+const PRESETS = {
+  normal: { speed: 1.0,  pitch: 0.0,  into: 1.0 },
+  cute:   { speed: 0.95, pitch: 0.06, into: 1.4 },
+  pug:    { speed: 1.15, pitch: 0.10, into: 1.7 },
+};
+$('preset').addEventListener('change', () => {
+  const p = PRESETS[$('preset').value];
+  if (!p) return;
+  $('speed').value = p.speed;      $('speedVal').textContent = p.speed.toFixed(2);
+  $('pitchScale').value = p.pitch; $('pitchVal').textContent = p.pitch.toFixed(2);
+  $('intonation').value = p.into;  $('intoVal').textContent = p.into.toFixed(2);
+});
+
+// ---- テキスト分割・パグ語尾 ----
+function splitText(text) {
+  const parts = [];
+  let buf = '';
+  for (const ch of text) {
+    buf += ch;
+    if ('。．！？!?\n'.includes(ch)) {
+      if (buf.trim()) parts.push(buf);
+      buf = '';
+    } else if (buf.length >= 100 && '、，,・ 　'.includes(ch)) {
+      parts.push(buf); buf = '';
+    }
+  }
+  if (buf.trim()) parts.push(buf);
+  return parts;
+}
+function pugify(seg) {
+  const m = seg.match(/^([\s\S]*?)([。．！？!?\n]+)?(\s*)$/);
+  if (!m) return seg;
+  const body = m[1], punct = m[2] || '', tail = m[3] || '';
+  if (!body.trim()) return seg;
+  if (/ワン$/.test(body.trim())) return seg;
+  return body + 'ワン' + (punct || '!') + tail;
+}
+
+// ---- プレビュー ----
+const preview = $('preview');
+function renderPreview(segments) {
+  preview.innerHTML = '';
+  segments.forEach((s, i) => {
+    const span = document.createElement('span');
+    span.className = 'seg'; span.dataset.idx = i; span.textContent = s;
+    preview.appendChild(span);
+  });
+}
+function markSegment(i) {
+  preview.querySelectorAll('.seg').forEach(el => {
+    const idx = Number(el.dataset.idx);
+    el.classList.toggle('now', idx === i);
+    el.classList.toggle('done', idx < i);
+  });
+  const cur = preview.querySelector('.seg.now');
+  if (cur) cur.scrollIntoView({ block: 'nearest' });
+}
+
+// ---- VOICEVOX API ----
+async function synthesizeSegment(text, speakerId) {
+  const q = await fetch(
+    `${ENGINE}/audio_query?text=${encodeURIComponent(text)}&speaker=${speakerId}`,
+    { method: 'POST' }
+  );
+  if (!q.ok) throw new Error(`audio_query失敗 (${q.status})`);
+  const query = await q.json();
+  // スライダー値をクエリに反映
+  query.speedScale = Number($('speed').value);
+  query.pitchScale = Number($('pitchScale').value);
+  query.intonationScale = Number($('intonation').value);
+  query.volumeScale = Number($('volumeScale').value);
+  const s = await fetch(`${ENGINE}/synthesis?speaker=${speakerId}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(query),
+  });
+  if (!s.ok) throw new Error(`synthesis失敗 (${s.status})`);
+  return await s.arrayBuffer(); // WAV
+}
+
+// ---- WAV結合(保存用) ----
+function findDataChunk(buf) {
+  const view = new DataView(buf);
+  let off = 12; // "RIFF"+size+"WAVE"
+  while (off + 8 <= view.byteLength) {
+    const id = String.fromCharCode(view.getUint8(off), view.getUint8(off+1), view.getUint8(off+2), view.getUint8(off+3));
+    const size = view.getUint32(off + 4, true);
+    if (id === 'data') return { headerEnd: off + 8, dataSize: size };
+    off += 8 + size + (size % 2);
+  }
+  throw new Error('WAVのdataチャンクが見つかりません');
+}
+function concatWavs(buffers) {
+  if (buffers.length === 1) return new Blob([buffers[0]], { type: 'audio/wav' });
+  const first = findDataChunk(buffers[0]);
+  const header = new Uint8Array(buffers[0].slice(0, first.headerEnd));
+  const dataParts = buffers.map(b => {
+    const d = findDataChunk(b);
+    return new Uint8Array(b, d.headerEnd, d.dataSize);
+  });
+  const totalData = dataParts.reduce((a, p) => a + p.byteLength, 0);
+  const out = new Uint8Array(first.headerEnd + totalData);
+  out.set(header, 0);
+  let pos = first.headerEnd;
+  for (const p of dataParts) { out.set(p, pos); pos += p.byteLength; }
+  const dv = new DataView(out.buffer);
+  dv.setUint32(4, out.byteLength - 8, true);              // RIFFチャンクサイズ
+  dv.setUint32(first.headerEnd - 4, totalData, true);     // dataチャンクサイズ
+  return new Blob([out], { type: 'audio/wav' });
+}
+
+// ---- 再生制御 ----
+let segments = [];
+let wavBuffers = [];   // 合成済みWAV(保存用)
+let segIndex = 0;
+let playing = false;
+let stopped = false;
+const audio = new Audio();
+const statusEl = $('status');
+const playBtn = $('playBtn'), pauseBtn = $('pauseBtn'), stopBtn = $('stopBtn'), saveBtn = $('saveBtn');
+
+function setUIState() {
+  playBtn.disabled = playing;
+  pauseBtn.disabled = !playing;
+  stopBtn.disabled = !playing;
+  document.body.classList.toggle('speaking', playing && !audio.paused);
+  pauseBtn.textContent = (playing && audio.paused) ? '▶ 再開' : '⏸ 一時停止';
+}
+
+async function playAll(speakerId) {
+  // 先読み: 次セグメントの合成を再生と並行して進める
+  let nextPromise = synthesizeSegment(segments[0], speakerId);
+  for (segIndex = 0; segIndex < segments.length; segIndex++) {
+    if (stopped) break;
+    statusEl.textContent = `合成中: ${segIndex + 1} / ${segments.length} 文`;
+    const buf = await nextPromise;
+    if (stopped) break;
+    wavBuffers.push(buf);
+    if (segIndex + 1 < segments.length) {
+      nextPromise = synthesizeSegment(segments[segIndex + 1], speakerId);
+    }
+    markSegment(segIndex);
+    statusEl.textContent = `再生中: ${segIndex + 1} / ${segments.length} 文`;
+    const url = URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
+    try {
+      await new Promise((resolve, reject) => {
+        audio.src = url;
+        audio.onended = resolve;
+        audio.onerror = () => reject(new Error('再生エラー'));
+        audio.play().catch(reject);
+        setUIState();
+      });
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  }
+}
+
+playBtn.addEventListener('click', async () => {
+  const text = $('inputText').value.trim();
+  const speakerId = $('speakerSelect').value;
+  if (!text) { statusEl.textContent = 'テキストが空です'; return; }
+  if (!speakerId) { statusEl.textContent = 'エンジン未接続です(キャラクターを取得できていません)'; return; }
+
+  segments = splitText(text);
+  if ($('pugTail').checked) segments = segments.map(pugify);
+  wavBuffers = [];
+  stopped = false;
+  playing = true;
+  saveBtn.disabled = true;
+  renderPreview(segments);
+  setUIState();
+
+  try {
+    await playAll(Number(speakerId));
+    statusEl.textContent = stopped ? '停止しました' : '再生が完了しました';
+  } catch (e) {
+    showError(`合成/再生エラー: ${e.message}`);
+    statusEl.textContent = 'エラーで中断しました';
+  } finally {
+    playing = false;
+    preview.querySelectorAll('.seg.now').forEach(el => el.classList.remove('now'));
+    saveBtn.disabled = wavBuffers.length === 0;
+    setUIState();
+  }
+});
+
+pauseBtn.addEventListener('click', () => {
+  if (!playing) return;
+  if (audio.paused) audio.play();
+  else audio.pause();
+  setUIState();
+});
+
+stopBtn.addEventListener('click', () => {
+  stopped = true;
+  audio.pause();
+  audio.dispatchEvent(new Event('ended')); // 待機中のPromiseを解放
+});
+
+// ---- WAV保存 ----
+saveBtn.addEventListener('click', () => {
+  if (wavBuffers.length === 0) return;
+  try {
+    const blob = concatWavs(wavBuffers);
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    const name = ($('speakerSelect').selectedOptions[0]?.textContent || 'voicevox').replace(/[\\/:*?"<>|]/g, '_');
+    a.download = `${name}_${new Date().toISOString().slice(0,19).replace(/[T:]/g, '-')}.wav`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    statusEl.textContent = 'WAVファイルを保存しました';
+  } catch (e) {
+    showError(`WAV保存エラー: ${e.message}`);
+  }
+});
+
+// ---- お気に入り(localStorage) ----
+const FAV_KEY = 'vv_tts_favorites';
+
+function loadFavs() {
+  try {
+    const raw = localStorage.getItem(FAV_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
+function saveFavs(favs) {
+  try { localStorage.setItem(FAV_KEY, JSON.stringify(favs)); }
+  catch (e) { showError(`お気に入り保存エラー: ${e.message}`); }
+}
+function currentSettings() {
+  return {
+    speakerId: $('speakerSelect').value,
+    speakerLabel: $('speakerSelect').selectedOptions[0]?.textContent || '',
+    preset: $('preset').value,
+    speed: Number($('speed').value),
+    pitch: Number($('pitchScale').value),
+    into: Number($('intonation').value),
+    volume: Number($('volumeScale').value),
+    pugTail: $('pugTail').checked,
+  };
+}
+function applySettings(s) {
+  // キャラクター復元(エンジン側に存在しない場合は現状維持して通知)
+  if (s.speakerId) {
+    const opt = [...$('speakerSelect').options].find(o => o.value === String(s.speakerId));
+    if (opt) $('speakerSelect').value = s.speakerId;
+    else statusEl.textContent = `注意: キャラ「${s.speakerLabel}」が見つかりません(エンジン未接続または未インストール)。声の条件のみ適用しました`;
+  }
+  $('preset').value = s.preset || 'custom';
+  $('speed').value = s.speed;       $('speedVal').textContent = s.speed.toFixed(2);
+  $('pitchScale').value = s.pitch;  $('pitchVal').textContent = s.pitch.toFixed(2);
+  $('intonation').value = s.into;   $('intoVal').textContent = s.into.toFixed(2);
+  $('volumeScale').value = s.volume; $('volVal').textContent = s.volume.toFixed(2);
+  $('pugTail').checked = !!s.pugTail;
+}
+function renderFavs() {
+  const favs = loadFavs();
+  const list = $('favList');
+  list.innerHTML = '';
+  if (favs.length === 0) {
+    list.innerHTML = '<span class="fav-empty">保存された条件はありません。キャラと声を調整して「現在の設定を保存」を押してください。</span>';
+    return;
+  }
+  favs.forEach(f => {
+    const chip = document.createElement('span');
+    chip.className = 'fav-chip';
+    const apply = document.createElement('button');
+    apply.className = 'fav-apply';
+    apply.textContent = f.name;
+    apply.title = `${f.settings.speakerLabel} / 話速${f.settings.speed.toFixed(2)} 音高${f.settings.pitch.toFixed(2)} 抑揚${f.settings.into.toFixed(2)}${f.settings.pugTail ? ' / パグ語尾' : ''}`;
+    apply.addEventListener('click', () => {
+      applySettings(f.settings);
+      if (!statusEl.textContent.startsWith('注意')) statusEl.textContent = `お気に入り「${f.name}」を適用しました`;
+    });
+    const del = document.createElement('button');
+    del.className = 'fav-del';
+    del.textContent = '×';
+    del.title = '削除';
+    del.setAttribute('aria-label', `${f.name} を削除`);
+    del.addEventListener('click', () => {
+      if (!confirm(`お気に入り「${f.name}」を削除しますか?`)) return;
+      saveFavs(loadFavs().filter(x => x.name !== f.name));
+      renderFavs();
+    });
+    chip.appendChild(apply);
+    chip.appendChild(del);
+    list.appendChild(chip);
+  });
+}
+$('favSaveBtn').addEventListener('click', () => {
+  const name = $('favName').value.trim();
+  if (!name) { statusEl.textContent = 'お気に入り名を入力してください'; $('favName').focus(); return; }
+  const favs = loadFavs();
+  // 同名は上書き(last-write-wins)
+  const map = new Map(favs.map(f => [f.name, f]));
+  const existed = map.has(name);
+  map.set(name, { name, settings: currentSettings() });
+  saveFavs([...map.values()]);
+  renderFavs();
+  $('favName').value = '';
+  statusEl.textContent = existed ? `お気に入り「${name}」を上書き保存しました` : `お気に入り「${name}」を保存しました`;
+});
+renderFavs();
+</script>
+</body>
+</html>
